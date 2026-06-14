@@ -13,6 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const qrcode = require('qrcode');
 const mongoose = require('mongoose');
+const Session = require('./models/session');
 
 // ==================== CONFIGURATION ====================
 const PREFIX = process.env.PREFIX || '.';
@@ -29,23 +30,13 @@ let qrScanned = false;
 let connectionStatus = 'disconnected';
 let usingMongoDB = false;
 
-// ==================== MONGODB SESSION SCHEMA ====================
-let Session;
-
+// ==================== MONGODB CONNECTION ====================
 if (MONGODB_URI && MONGODB_URI !== '') {
-    const sessionSchema = new mongoose.Schema({
-        sessionId: { type: String, unique: true },
-        creds: Object,
-        keys: Object,
-        updatedAt: { type: Date, default: Date.now }
-    });
-
-    Session = mongoose.model('Session', sessionSchema);
     usingMongoDB = true;
-
-    // Connect to MongoDB
     mongoose.connect(MONGODB_URI).then(() => {
         console.log('📦 MongoDB connected - Sessions will persist');
+        // Clean expired sessions on startup
+        Session.cleanExpiredSessions().catch(() => {});
     }).catch(err => {
         console.error('❌ MongoDB connection failed:', err.message);
         console.log('📁 Falling back to local storage');
@@ -56,7 +47,6 @@ if (MONGODB_URI && MONGODB_URI !== '') {
 }
 
 // ==================== LOGGER CONFIG ====================
-// Create logs directory
 const logsDir = path.join(__dirname, 'logs');
 if (!fs.existsSync(logsDir)) {
     fs.mkdirSync(logsDir, { recursive: true });
@@ -90,6 +80,7 @@ ${PREFIX}owner - Show owner info
 ${PREFIX}info - Bot information
 ${PREFIX}sticker - Create sticker
 ${PREFIX}help - Show all commands
+${PREFIX}stats - Session statistics
 
 ✨ *Powered by HDM*
             `;
@@ -104,7 +95,7 @@ ${PREFIX}help - Show all commands
             await sock.sendMessage(msg.key.remoteJid, { text: '📊 *Testing...*' });
             const latency = Date.now() - start;
             await sock.sendMessage(msg.key.remoteJid, { 
-                text: `🏓 *Pong!*\n⏱️ Latency: ${latency}ms\n💾 Storage: ${usingMongoDB ? 'MongoDB' : 'Local'}`
+                text: `🏓 *Pong!*\n⏱️ Latency: ${latency}ms\n💾 Storage: ${usingMongoDB ? '☁️ MongoDB' : '📁 Local'}`
             });
         }
     });
@@ -136,6 +127,14 @@ ${PREFIX}help - Show all commands
             const minutes = Math.floor((uptime % 3600) / 60);
             const seconds = Math.floor(uptime % 60);
 
+            let sessionInfo = '';
+            if (usingMongoDB) {
+                const session = await Session.findOne({ sessionId: SESSION_ID });
+                if (session) {
+                    sessionInfo = `\n*Session:* ${session.status}\n*Last Connected:* ${session.metadata.lastConnected?.toLocaleString() || 'N/A'}`;
+                }
+            }
+
             const info = `
 🤖 *${BOT_NAME}*
 
@@ -146,7 +145,7 @@ ${PREFIX}help - Show all commands
 *Framework:* HDM
 *Self CMD:* ✅ Enabled
 *Status:* ${connectionStatus.toUpperCase()}
-*Storage:* ${usingMongoDB ? '☁️ MongoDB' : '📁 Local'}
+*Storage:* ${usingMongoDB ? '☁️ MongoDB' : '📁 Local'}${sessionInfo}
             `;
             await sock.sendMessage(msg.key.remoteJid, { text: info });
         }
@@ -188,19 +187,55 @@ ${PREFIX}help - Show all commands
             }
         }
     });
+
+    commands.set('stats', {
+        desc: 'Show session statistics',
+        execute: async (msg) => {
+            if (!usingMongoDB) {
+                return await sock.sendMessage(msg.key.remoteJid, { 
+                    text: '📊 Stats only available with MongoDB storage.'
+                });
+            }
+
+            const stats = await Session.getSessionStats();
+            const session = await Session.findOne({ sessionId: SESSION_ID });
+            
+            let statsText = `📊 *Session Statistics*\n\n`;
+            statsText += `*Current Session:*\n`;
+            statsText += `- Status: ${session?.status || 'N/A'}\n`;
+            statsText += `- Created: ${session?.createdAt?.toLocaleString() || 'N/A'}\n`;
+            statsText += `- Last Updated: ${session?.updatedAt?.toLocaleString() || 'N/A'}\n`;
+            statsText += `- Last Connected: ${session?.metadata?.lastConnected?.toLocaleString() || 'N/A'}\n\n`;
+            statsText += `*All Sessions:*\n`;
+            
+            stats.forEach(s => {
+                statsText += `- ${s._id}: ${s.count} session(s)\n`;
+            });
+
+            await sock.sendMessage(msg.key.remoteJid, { text: statsText });
+        }
+    });
 }
 
 // ==================== SESSION STORAGE HELPERS ====================
 async function saveSessionToMongo(creds, keys) {
-    if (!Session || !usingMongoDB) return;
+    if (!usingMongoDB) return;
     try {
         await Session.findOneAndUpdate(
             { sessionId: SESSION_ID },
             { 
-                sessionId: SESSION_ID, 
-                creds: creds, 
-                keys: keys, 
-                updatedAt: new Date() 
+                sessionId: SESSION_ID,
+                creds: creds,
+                keys: keys,
+                status: 'active',
+                metadata: {
+                    botName: BOT_NAME,
+                    ownerName: OWNER_NAME,
+                    phoneNumber: creds.me?.id?.split(':')[0] || OWNER_NUMBER,
+                    platform: 'WhatsApp',
+                    lastConnected: new Date(),
+                    deviceInfo: 'HDM BOT v1.0.0'
+                }
             },
             { upsert: true, new: true }
         );
@@ -210,11 +245,13 @@ async function saveSessionToMongo(creds, keys) {
 }
 
 async function loadSessionFromMongo() {
-    if (!Session || !usingMongoDB) return null;
+    if (!usingMongoDB) return null;
     try {
-        const session = await Session.findOne({ sessionId: SESSION_ID });
+        const session = await Session.findActiveSession(SESSION_ID);
         if (session) {
             console.log('📦 Session loaded from MongoDB');
+            console.log(`   Status: ${session.status}`);
+            console.log(`   Last Connected: ${session.metadata.lastConnected?.toLocaleString()}`);
             return { creds: session.creds, keys: session.keys };
         }
     } catch (error) {
@@ -224,10 +261,13 @@ async function loadSessionFromMongo() {
 }
 
 async function deleteSessionFromMongo() {
-    if (!Session || !usingMongoDB) return;
+    if (!usingMongoDB) return;
     try {
-        await Session.deleteOne({ sessionId: SESSION_ID });
-        console.log('📦 Session deleted from MongoDB');
+        const session = await Session.findOne({ sessionId: SESSION_ID });
+        if (session) {
+            await session.deactivate();
+            console.log('📦 Session deactivated in MongoDB');
+        }
     } catch (error) {
         console.error('MongoDB delete error:', error.message);
     }
@@ -235,8 +275,7 @@ async function deleteSessionFromMongo() {
 
 // ==================== AUTH STATE MANAGEMENT ====================
 async function getAuthState() {
-    // Try MongoDB first
-    if (usingMongoDB && Session) {
+    if (usingMongoDB) {
         const mongoSession = await loadSessionFromMongo();
         if (mongoSession) {
             return {
@@ -348,7 +387,7 @@ async function connectToWhatsApp() {
                 try {
                     qrCodeData = await qrcode.toDataURL(qr);
                 } catch (err) {
-                    console.error('QR generation error:', err.message);
+                    console.error('QR error:', err.message);
                 }
             }
 
@@ -381,6 +420,10 @@ async function connectToWhatsApp() {
 
                 if (statusCode === DisconnectReason.loggedOut) {
                     console.log('❌ Logged out');
+                    // Deactivate session in MongoDB
+                    if (usingMongoDB) {
+                        await deleteSessionFromMongo();
+                    }
                     sock = null;
                     qrCodeData = null;
                     qrScanned = false;
@@ -446,12 +489,10 @@ module.exports = {
     },
     deleteSession: async () => {
         await module.exports.disconnect();
-        // Delete local
         const sessionDir = path.join(__dirname, 'sessions', SESSION_ID);
         if (fs.existsSync(sessionDir)) {
             fs.rmSync(sessionDir, { recursive: true, force: true });
         }
-        // Delete from MongoDB
         await deleteSessionFromMongo();
     }
 };
