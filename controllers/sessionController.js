@@ -3,39 +3,29 @@ const path = require('path');
 const Session = require('../models/session');
 const { getSessionManager } = require('../whatsapp/sessionManager');
 
-// ==================== SESSION CONTROLLER ====================
-
 const sessionController = {
 
-    // ========== LIST ALL SESSIONS ==========
+    // ========== LIST - NO AUTO-DELETE ==========
     list: async (req, res) => {
         try {
-            // Clean empty sessions first
-            await Session.deleteMany({ 
-                $or: [
-                    { sessionId: '' }, 
-                    { sessionId: null }, 
-                    { sessionId: { $exists: false } } 
-                ] 
-            });
-
             const sessions = await Session.find({}).select('-creds -keys').sort({ updatedAt: -1 });
             const sessionManager = getSessionManager();
 
-            // Deduplicate
+            // Only filter, NEVER delete
             const seen = new Set();
-            const uniqueSessions = [];
-            
+            const validSessions = [];
+
             for (const s of sessions) {
-                if (!s.sessionId || seen.has(s.sessionId)) continue;
+                // Skip truly invalid documents
+                if (!s.sessionId || s.sessionId.trim() === '') continue;
+                if (seen.has(s.sessionId)) continue;
                 seen.add(s.sessionId);
-                uniqueSessions.push(s);
+                validSessions.push(s);
             }
 
-            const sessionList = uniqueSessions.map(s => {
+            const sessionList = validSessions.map(s => {
                 const isConnected = sessionManager.isConnected(s.sessionId);
                 
-                // Get phone from connected socket if missing
                 let phone = s.metadata?.phoneNumber;
                 if (!phone || phone === 'N/A') {
                     const sock = sessionManager.getSocket(s.sessionId);
@@ -67,7 +57,7 @@ const sessionController = {
         }
     },
 
-    // ========== GET SINGLE SESSION ==========
+    // ========== GET SINGLE ==========
     get: async (req, res) => {
         try {
             const { id } = req.params;
@@ -102,7 +92,7 @@ const sessionController = {
         }
     },
 
-    // ========== CREATE SESSION ==========
+    // ========== CREATE ==========
     create: async (req, res) => {
         try {
             const { sessionId, botName, ownerNumber, ownerName } = req.body;
@@ -114,20 +104,18 @@ const sessionController = {
             const cleanId = sessionId.trim().replace(/[^a-zA-Z0-9_-]/g, '');
 
             if (!cleanId) {
-                return res.status(400).json({ success: false, error: 'Invalid session ID. Use letters, numbers, hyphens, underscores.' });
+                return res.status(400).json({ success: false, error: 'Invalid session ID' });
             }
 
-            // Check max
             const maxSessions = parseInt(process.env.MAX_SESSIONS) || 5;
             const count = await Session.countDocuments({ sessionId: { $ne: '', $exists: true } });
             if (count >= maxSessions) {
-                return res.status(400).json({ success: false, error: `Max ${maxSessions} sessions. Delete one first.` });
+                return res.status(400).json({ success: false, error: `Max ${maxSessions} sessions` });
             }
 
-            // Check duplicate
             const existing = await Session.findOne({ sessionId: cleanId });
             if (existing) {
-                return res.status(409).json({ success: false, error: `Session "${cleanId}" already exists` });
+                return res.status(409).json({ success: false, error: `"${cleanId}" already exists` });
             }
 
             const session = new Session({
@@ -146,7 +134,6 @@ const sessionController = {
 
             await session.save();
 
-            // Create local dir
             const sessionDir = path.join(__dirname, '..', 'sessions', cleanId);
             if (!fs.existsSync(sessionDir)) {
                 fs.mkdirSync(sessionDir, { recursive: true });
@@ -157,18 +144,14 @@ const sessionController = {
             res.status(201).json({
                 success: true,
                 message: `Session "${cleanId}" created`,
-                session: {
-                    id: session.sessionId,
-                    status: session.status,
-                    botName: session.metadata.botName
-                }
+                session: { id: session.sessionId, status: session.status, botName: session.metadata.botName }
             });
         } catch (error) {
             res.status(500).json({ success: false, error: error.message });
         }
     },
 
-    // ========== DELETE SESSION ==========
+    // ========== DELETE ==========
     delete: async (req, res) => {
         try {
             const { id } = req.params;
@@ -184,15 +167,13 @@ const sessionController = {
                 return res.status(404).json({ success: false, error: 'Session not found' });
             }
 
-            // Delete local files
             const sessionDir = path.join(__dirname, '..', 'sessions', id);
             if (fs.existsSync(sessionDir)) {
                 fs.rmSync(sessionDir, { recursive: true, force: true });
             }
 
             console.log(`🗑️ Session deleted: ${id}`);
-
-            res.json({ success: true, message: `Session "${id}" deleted` });
+            res.json({ success: true, message: `"${id}" deleted` });
         } catch (error) {
             res.status(500).json({ success: false, error: error.message });
         }
@@ -206,11 +187,11 @@ const sessionController = {
 
             const session = await Session.findOne({ sessionId: id });
             if (!session) {
-                return res.status(404).json({ success: false, error: 'Session not found. Create it first.' });
+                return res.status(404).json({ success: false, error: 'Create session first' });
             }
 
             if (sessionManager.isConnected(id)) {
-                return res.json({ success: true, message: 'Already connected', connected: true });
+                return res.json({ success: true, connected: true, message: 'Already connected' });
             }
 
             console.log(`🔌 Connecting: ${id}`);
@@ -239,8 +220,7 @@ const sessionController = {
 
             await sessionManager.disconnect(id);
             console.log(`🔌 Disconnected: ${id}`);
-
-            res.json({ success: true, message: `Disconnected` });
+            res.json({ success: true, message: 'Disconnected' });
         } catch (error) {
             res.status(500).json({ success: false, error: error.message });
         }
@@ -253,15 +233,14 @@ const sessionController = {
             const sessionManager = getSessionManager();
 
             if (sessionManager.isConnected(id)) {
-                return res.json({ success: true, connected: true, message: 'Already connected' });
+                return res.json({ success: true, connected: true });
             }
 
             const qr = sessionManager.getQRCode(id);
-
             if (qr) {
                 res.json({ success: true, qr });
             } else {
-                res.json({ success: false, error: 'No QR. Click Connect first.', needConnection: true });
+                res.json({ success: false, error: 'Click Connect first', needConnection: true });
             }
         } catch (error) {
             res.status(500).json({ success: false, error: error.message });
