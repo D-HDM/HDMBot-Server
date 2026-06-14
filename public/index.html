@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HDM BOT - Session Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .bot-icon {
+            font-size: 60px;
+            margin-bottom: 10px;
+        }
+
+        .bot-name {
+            font-size: 28px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .bot-owner {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .status-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .status-dot.connected {
+            background: #28a745;
+            box-shadow: 0 0 10px #28a745;
+        }
+
+        .status-dot.disconnected {
+            background: #dc3545;
+            box-shadow: 0 0 10px #dc3545;
+        }
+
+        .session-info {
+            color: #666;
+            font-size: 13px;
+            margin-top: 10px;
+        }
+
+        .actions {
+            display: grid;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn-connect {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-qr {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-disconnect {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: #333;
+        }
+
+        .btn-delete {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+        }
+
+        .qr-container {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            display: none;
+        }
+
+        .qr-container.active {
+            display: block;
+        }
+
+        .qr-image {
+            max-width: 250px;
+            width: 100%;
+            margin: 0 auto;
+            display: block;
+        }
+
+        .qr-info {
+            color: #666;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 10px;
+            margin-top: 15px;
+            text-align: center;
+            font-weight: 500;
+            display: none;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            display: block;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+
+        .message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            display: block;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            color: #999;
+            font-size: 12px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="bot-icon">🤖</div>
+            <div class="bot-name">HDM BOT</div>
+            <div class="bot-owner">by Davix HDM</div>
+        </div>
+
+        <div class="status-card">
+            <div class="status-indicator">
+                <span class="status-dot disconnected" id="statusDot"></span>
+                <span id="statusText">Checking status...</span>
+            </div>
+            <div class="session-info" id="sessionInfo"></div>
+        </div>
+
+        <div class="actions" id="actions"></div>
+
+        <div class="qr-container" id="qrContainer">
+            <div id="qrLoading" class="loading-spinner" style="display:none;"></div>
+            <img class="qr-image" id="qrImage" src="" alt="QR Code" style="display:none;">
+            <div class="qr-info">📱 Scan with WhatsApp<br>Settings → Linked Devices → Link a Device</div>
+        </div>
+
+        <div class="message" id="message"></div>
+
+        <div class="footer">
+            HDM BOT v1.0.0 | Powered by HDM
+        </div>
+    </div>
+
+    <script>
+        let qrPollInterval = null;
+        let currentStatus = { connected: false, sessionExists: false };
+
+        // DOM elements
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const sessionInfo = document.getElementById('sessionInfo');
+        const actionsDiv = document.getElementById('actions');
+        const qrContainer = document.getElementById('qrContainer');
+        const qrImage = document.getElementById('qrImage');
+        const qrLoading = document.getElementById('qrLoading');
+        const messageDiv = document.getElementById('message');
+
+        function showMessage(text, type = 'info') {
+            messageDiv.textContent = text;
+            messageDiv.className = `message ${type}`;
+            setTimeout(() => {
+                messageDiv.className = 'message';
+            }, 5000);
+        }
+
+        function updateUI() {
+            const { connected, sessionExists } = currentStatus;
+
+            // Update status
+            statusDot.className = connected ? 'status-dot connected' : 'status-dot disconnected';
+            statusText.textContent = connected ? 'Connected ✅' : 'Disconnected ❌';
+            sessionInfo.textContent = connected ? 'WhatsApp session active' : 
+                                     sessionExists ? 'Session exists but not connected' : 
+                                     'No WhatsApp session found';
+
+            // Clear and rebuild buttons
+            actionsDiv.innerHTML = '';
+
+            if (!sessionExists) {
+                // No session
+                actionsDiv.appendChild(createButton('🔌 Connect WhatsApp', 'btn-connect', connectWhatsApp));
+                actionsDiv.appendChild(createButton('📱 View QR Code', 'btn-qr', viewQRCode));
+                const delBtn = createButton('🗑️ Delete Session', 'btn-delete', deleteSession);
+                delBtn.disabled = true;
+                actionsDiv.appendChild(delBtn);
+            } else if (!connected) {
+                // Session exists but disconnected
+                actionsDiv.appendChild(createButton('🔄 Reconnect WhatsApp', 'btn-connect', connectWhatsApp));
+                actionsDiv.appendChild(createButton('📱 View QR Code', 'btn-qr', viewQRCode));
+                actionsDiv.appendChild(createButton('🗑️ Delete Session', 'btn-delete', deleteSession));
+            } else {
+                // Connected
+                actionsDiv.appendChild(createButton('❌ Disconnect', 'btn-disconnect', disconnectWhatsApp));
+                actionsDiv.appendChild(createButton('🗑️ Delete Session', 'btn-delete', deleteSession));
+            }
+        }
+
+        function createButton(text, className, onClick) {
+            const btn = document.createElement('button');
+            btn.className = `btn ${className}`;
+            btn.textContent = text;
+            btn.addEventListener('click', onClick);
+            return btn;
+        }
+
+        async function checkStatus() {
+            try {
+                const response = await fetch('/status');
+                const data = await response.json();
+                currentStatus = {
+                    connected: data.connected,
+                    sessionExists: data.sessionExists
+                };
+                updateUI();
+            } catch (error) {
+                console.error('Status check failed:', error);
+            }
+        }
+
+        async function connectWhatsApp() {
+            try {
+                showMessage('Initiating connection...', 'info');
+                const response = await fetch('/connect', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage(data.message, 'success');
+                    // Show QR container
+                    qrContainer.classList.add('active');
+                    qrLoading.style.display = 'block';
+                    qrImage.style.display = 'none';
+                    
+                    // Start polling for QR code
+                    startQRPolling();
+                    
+                    // Refresh status after delay
+                    setTimeout(checkStatus, 2000);
+                } else {
+                    showMessage(data.error || 'Connection failed', 'error');
+                }
+            } catch (error) {
+                showMessage('Error connecting', 'error');
+            }
+        }
+
+        async function viewQRCode() {
+            try {
+                qrContainer.classList.add('active');
+                qrLoading.style.display = 'block';
+                qrImage.style.display = 'none';
+                
+                const response = await fetch('/qr');
+                const data = await response.json();
+                
+                if (data.success && data.qr) {
+                    qrImage.src = data.qr;
+                    qrImage.style.display = 'block';
+                    qrLoading.style.display = 'none';
+                    showMessage('Scan this QR code with WhatsApp', 'info');
+                    startQRPolling();
+                } else if (data.needConnection) {
+                    showMessage('Click Connect first to generate QR code', 'error');
+                    qrContainer.classList.remove('active');
+                } else {
+                    showMessage(data.message || 'No QR available', 'info');
+                }
+            } catch (error) {
+                showMessage('Error loading QR', 'error');
+            }
+        }
+
+        function startQRPolling() {
+            stopQRPolling();
+            qrPollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/qr-status');
+                    const data = await response.json();
+                    
+                    if (data.connected) {
+                        // Connected!
+                        stopQRPolling();
+                        qrContainer.classList.remove('active');
+                        qrImage.style.display = 'none';
+                        showMessage('✅ Connected successfully!', 'success');
+                        currentStatus.connected = true;
+                        updateUI();
+                    } else if (data.qr) {
+                        // Update QR code
+                        qrImage.src = data.qr;
+                        qrImage.style.display = 'block';
+                        qrLoading.style.display = 'none';
+                        if (data.qrScanned) {
+                            showMessage('QR scanned! Waiting for confirmation...', 'info');
+                        }
+                    }
+                } catch (error) {
+                    console.error('QR poll error:', error);
+                }
+            }, 2000);
+        }
+
+        function stopQRPolling() {
+            if (qrPollInterval) {
+                clearInterval(qrPollInterval);
+                qrPollInterval = null;
+            }
+        }
+
+        async function disconnectWhatsApp() {
+            if (!confirm('Disconnect from WhatsApp?')) return;
+            
+            try {
+                showMessage('Disconnecting...', 'info');
+                const response = await fetch('/disconnect', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage('Disconnected!', 'success');
+                    stopQRPolling();
+                    qrContainer.classList.remove('active');
+                    currentStatus.connected = false;
+                    updateUI();
+                }
+            } catch (error) {
+                showMessage('Error disconnecting', 'error');
+            }
+        }
+
+        async function deleteSession() {
+            if (!confirm('Delete session? You will need to scan QR again.')) return;
+            
+            try {
+                const response = await fetch('/delete-session', { method: 'DELETE' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage('Session deleted!', 'success');
+                    stopQRPolling();
+                    qrContainer.classList.remove('active');
+                    currentStatus = { connected: false, sessionExists: false };
+                    updateUI();
+                }
+            } catch (error) {
+                showMessage('Error deleting session', 'error');
+            }
+        }
+
+        // Initialize
+        checkStatus();
+        setInterval(checkStatus, 5000);
+
+        // Cleanup
+        window.addEventListener('beforeunload', stopQRPolling);
+    </script>
+</body>
+</html>
