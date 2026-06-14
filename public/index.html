@@ -5,459 +5,322 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HDM BOT - Session Manager</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e,#16213e);min-height:100vh;color:#fff;padding:20px}
+        .container{max-width:800px;margin:0 auto}
+        .header{text-align:center;padding:30px 0 20px}
+        .header h1{font-size:2em;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .header p{color:#888;margin-top:5px}
+        
+        .stats-bar{display:flex;gap:15px;justify-content:center;margin-bottom:25px;flex-wrap:wrap}
+        .stat{background:#1e1e3a;border-radius:12px;padding:15px 25px;text-align:center;border:1px solid #2a2a4a;min-width:100px}
+        .stat .num{font-size:1.5em;font-weight:bold;color:#667eea}
+        .stat .label{font-size:0.75em;color:#888;text-transform:uppercase}
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
+        .add-btn{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:14px;border:none;border-radius:12px;cursor:pointer;font-size:1em;margin-bottom:20px;width:100%;font-weight:600;transition:all 0.3s}
+        .add-btn:hover{opacity:0.9;transform:translateY(-1px)}
 
-        .container {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            padding: 40px;
-            max-width: 500px;
-            width: 100%;
-        }
+        .form-card{display:none;background:#1e1e3a;padding:25px;border-radius:15px;margin-bottom:20px;border:1px solid #2a2a4a}
+        .form-card.active{display:block}
+        .form-card h3{color:#667eea;margin-bottom:15px}
+        .form-card input{width:100%;padding:12px;border-radius:8px;border:1px solid #2a2a4a;background:#12122a;color:#fff;margin:8px 0;font-size:0.95em}
+        .form-card input:focus{outline:none;border-color:#667eea}
+        .form-actions{display:flex;gap:10px;margin-top:15px}
+        .form-actions button{flex:1;padding:12px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.95em;transition:all 0.2s}
+        .form-actions button:hover{opacity:0.85}
 
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
+        .session-card{background:#1e1e3a;border-radius:15px;padding:20px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;border:1px solid #2a2a4a;gap:15px;flex-wrap:wrap}
+        .session-card:hover{border-color:#667eea55}
+        .session-info{flex:1;min-width:180px}
+        .session-info h3{color:#e0e0ff;margin-bottom:4px;font-size:1.1em;word-break:break-all}
+        .session-info .sid{color:#666;font-size:0.8em;margin-bottom:6px}
+        
+        .status-badge{display:inline-block;font-size:0.75em;padding:4px 10px;border-radius:10px;font-weight:600}
+        .s-connected{background:#28a74522;color:#28a745;border:1px solid #28a74544}
+        .s-disconnected{background:#dc354522;color:#dc3545;border:1px solid #dc354544}
+        .s-connecting{background:#ffc10722;color:#ffc107;border:1px solid #ffc10744}
+        .s-inactive{background:#6c757d22;color:#6c757d;border:1px solid #6c757d44}
 
-        .bot-icon {
-            font-size: 60px;
-            margin-bottom: 10px;
-        }
+        .actions{display:flex;gap:8px;flex-wrap:wrap}
+        .btn{padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.85em;transition:all 0.2s;white-space:nowrap}
+        .btn:hover{opacity:0.85;transform:translateY(-1px)}
+        .btn-connect{background:#667eea;color:#fff}
+        .btn-disconnect{background:#f0ad4e;color:#000}
+        .btn-qr{background:#6f42c1;color:#fff}
+        .btn-delete{background:#dc3545;color:#fff}
+        .btn:disabled{opacity:0.4;cursor:not-allowed;transform:none}
 
-        .bot-name {
-            font-size: 28px;
-            font-weight: bold;
-            color: #667eea;
-            margin-bottom: 5px;
-        }
+        .qr-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);justify-content:center;align-items:center;z-index:9999}
+        .qr-overlay.active{display:flex}
+        .qr-box{background:#1e1e3a;padding:30px;border-radius:20px;text-align:center;max-width:420px;width:90%;border:1px solid #2a2a4a}
+        .qr-box h3{color:#667eea;margin-bottom:10px}
+        .qr-box img{max-width:250px;border-radius:12px;margin:15px 0}
+        .qr-box p{color:#999;margin:8px 0;font-size:0.9em}
+        .qr-box .btn{margin-top:10px}
+        
+        .empty-state{text-align:center;padding:60px 20px;color:#555}
+        .empty-state .icon{font-size:3em;margin-bottom:15px}
+        .empty-state p{font-size:1.1em}
+        
+        .loading{text-align:center;padding:40px;color:#666}
+        .spinner{display:inline-block;width:30px;height:30px;border:3px solid #2a2a4a;border-top-color:#667eea;border-radius:50%;animation:spin 0.8s linear infinite}
+        @keyframes spin{to{transform:rotate(360deg)}}
 
-        .bot-owner {
-            color: #666;
-            font-size: 14px;
-        }
+        .toast{position:fixed;bottom:20px;right:20px;background:#1e1e3a;color:#fff;padding:12px 20px;border-radius:10px;border:1px solid #2a2a4a;z-index:9999;animation:slideIn 0.3s ease;max-width:350px}
+        @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+        .toast.error{border-color:#dc3545;color:#dc3545}
+        .toast.success{border-color:#28a745;color:#28a745}
 
-        .status-card {
-            background: #f8f9fa;
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 25px;
-            text-align: center;
-        }
-
-        .status-indicator {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 16px;
-            font-weight: 500;
-            margin-bottom: 10px;
-        }
-
-        .status-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-
-        .status-dot.connected {
-            background: #28a745;
-            box-shadow: 0 0 10px #28a745;
-        }
-
-        .status-dot.disconnected {
-            background: #dc3545;
-            box-shadow: 0 0 10px #dc3545;
-        }
-
-        .session-info {
-            color: #666;
-            font-size: 13px;
-            margin-top: 10px;
-        }
-
-        .actions {
-            display: grid;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .btn {
-            padding: 15px 25px;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none !important;
-        }
-
-        .btn-connect {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .btn-qr {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-        }
-
-        .btn-disconnect {
-            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-            color: #333;
-        }
-
-        .btn-delete {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-            color: white;
-        }
-
-        .qr-container {
-            text-align: center;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 15px;
-            display: none;
-        }
-
-        .qr-container.active {
-            display: block;
-        }
-
-        .qr-image {
-            max-width: 250px;
-            width: 100%;
-            margin: 0 auto;
-            display: block;
-        }
-
-        .qr-info {
-            color: #666;
-            margin-top: 15px;
-            font-size: 14px;
-        }
-
-        .message {
-            padding: 12px;
-            border-radius: 10px;
-            margin-top: 15px;
-            text-align: center;
-            font-weight: 500;
-            display: none;
-        }
-
-        .message.success {
-            background: #d4edda;
-            color: #155724;
-            display: block;
-        }
-
-        .message.error {
-            background: #f8d7da;
-            color: #721c24;
-            display: block;
-        }
-
-        .message.info {
-            background: #d1ecf1;
-            color: #0c5460;
-            display: block;
-        }
-
-        .footer {
-            text-align: center;
-            margin-top: 20px;
-            color: #999;
-            font-size: 12px;
-        }
-
-        .loading-spinner {
-            display: inline-block;
-            width: 40px;
-            height: 40px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        @media(max-width:500px){
+            .container{padding:10px}
+            .session-card{flex-direction:column;align-items:stretch}
+            .actions{justify-content:center}
+            .stats-bar{gap:8px}
+            .stat{padding:10px 15px;min-width:80px}
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <div class="bot-icon">🤖</div>
-            <div class="bot-name">HDM BOT</div>
-            <div class="bot-owner">by Davix HDM</div>
+            <h1>🤖 HDM BOT</h1>
+            <p>Multi-Session Manager</p>
         </div>
 
-        <div class="status-card">
-            <div class="status-indicator">
-                <span class="status-dot disconnected" id="statusDot"></span>
-                <span id="statusText">Checking status...</span>
+        <div class="stats-bar" id="statsBar"></div>
+
+        <button class="add-btn" onclick="toggleForm()">+ Add New Session</button>
+
+        <div class="form-card" id="createForm">
+            <h3>Create New Session</h3>
+            <input type="text" id="newId" placeholder="Session ID * (letters, numbers, hyphens)">
+            <input type="text" id="newName" placeholder="Display Name (optional)">
+            <input type="text" id="newPhone" placeholder="Phone Number (optional)">
+            <div class="form-actions">
+                <button style="background:#667eea;color:#fff" onclick="createSession()">Create</button>
+                <button style="background:#dc3545;color:#fff" onclick="toggleForm()">Cancel</button>
             </div>
-            <div class="session-info" id="sessionInfo"></div>
         </div>
 
-        <div class="actions" id="actions"></div>
+        <div id="sessionsList"><div class="loading"><div class="spinner"></div><p style="margin-top:15px">Loading sessions...</p></div></div>
+    </div>
 
-        <div class="qr-container" id="qrContainer">
-            <div id="qrLoading" class="loading-spinner" style="display:none;"></div>
-            <img class="qr-image" id="qrImage" src="" alt="QR Code" style="display:none;">
-            <div class="qr-info">📱 Scan with WhatsApp<br>Settings → Linked Devices → Link a Device</div>
-        </div>
-
-        <div class="message" id="message"></div>
-
-        <div class="footer">
-            HDM BOT v1.0.0 | Powered by HDM
+    <div class="qr-overlay" id="qrOverlay">
+        <div class="qr-box">
+            <h3>📱 Scan QR Code</h3>
+            <img id="qrImage" src="" alt="QR Code">
+            <p>WhatsApp → Settings → Linked Devices → Link a Device</p>
+            <p id="qrStatus" style="color:#ffc107">Waiting for QR...</p>
+            <button class="btn btn-delete" onclick="closeQR()">Close</button>
         </div>
     </div>
 
     <script>
-        let qrPollInterval = null;
-        let currentStatus = { connected: false, sessionExists: false };
+        const API = '/api/sessions';
+        let qrTimer = null;
+        let currentQR = null;
 
-        // DOM elements
-        const statusDot = document.getElementById('statusDot');
-        const statusText = document.getElementById('statusText');
-        const sessionInfo = document.getElementById('sessionInfo');
-        const actionsDiv = document.getElementById('actions');
-        const qrContainer = document.getElementById('qrContainer');
-        const qrImage = document.getElementById('qrImage');
-        const qrLoading = document.getElementById('qrLoading');
-        const messageDiv = document.getElementById('message');
-
-        function showMessage(text, type = 'info') {
-            messageDiv.textContent = text;
-            messageDiv.className = `message ${type}`;
-            setTimeout(() => {
-                messageDiv.className = 'message';
-            }, 5000);
+        // ==================== TOAST ====================
+        function toast(msg, type = '') {
+            const el = document.createElement('div');
+            el.className = `toast ${type}`;
+            el.textContent = msg;
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 3000);
         }
 
-        function updateUI() {
-            const { connected, sessionExists } = currentStatus;
-
-            // Update status
-            statusDot.className = connected ? 'status-dot connected' : 'status-dot disconnected';
-            statusText.textContent = connected ? 'Connected ✅' : 'Disconnected ❌';
-            sessionInfo.textContent = connected ? 'WhatsApp session active' : 
-                                     sessionExists ? 'Session exists but not connected' : 
-                                     'No WhatsApp session found';
-
-            // Clear and rebuild buttons
-            actionsDiv.innerHTML = '';
-
-            if (!sessionExists) {
-                // No session
-                actionsDiv.appendChild(createButton('🔌 Connect WhatsApp', 'btn-connect', connectWhatsApp));
-                actionsDiv.appendChild(createButton('📱 View QR Code', 'btn-qr', viewQRCode));
-                const delBtn = createButton('🗑️ Delete Session', 'btn-delete', deleteSession);
-                delBtn.disabled = true;
-                actionsDiv.appendChild(delBtn);
-            } else if (!connected) {
-                // Session exists but disconnected
-                actionsDiv.appendChild(createButton('🔄 Reconnect WhatsApp', 'btn-connect', connectWhatsApp));
-                actionsDiv.appendChild(createButton('📱 View QR Code', 'btn-qr', viewQRCode));
-                actionsDiv.appendChild(createButton('🗑️ Delete Session', 'btn-delete', deleteSession));
-            } else {
-                // Connected
-                actionsDiv.appendChild(createButton('❌ Disconnect', 'btn-disconnect', disconnectWhatsApp));
-                actionsDiv.appendChild(createButton('🗑️ Delete Session', 'btn-delete', deleteSession));
-            }
-        }
-
-        function createButton(text, className, onClick) {
-            const btn = document.createElement('button');
-            btn.className = `btn ${className}`;
-            btn.textContent = text;
-            btn.addEventListener('click', onClick);
-            return btn;
-        }
-
-        async function checkStatus() {
+        // ==================== LOAD SESSIONS ====================
+        async function loadSessions() {
             try {
-                const response = await fetch('/status');
-                const data = await response.json();
-                currentStatus = {
-                    connected: data.connected,
-                    sessionExists: data.sessionExists
-                };
-                updateUI();
-            } catch (error) {
-                console.error('Status check failed:', error);
-            }
-        }
+                const res = await fetch(API);
+                const data = await res.json();
+                const list = document.getElementById('sessionsList');
+                const stats = document.getElementById('statsBar');
 
-        async function connectWhatsApp() {
-            try {
-                showMessage('Initiating connection...', 'info');
-                const response = await fetch('/connect', { method: 'POST' });
-                const data = await response.json();
+                if (!data.success) {
+                    list.innerHTML = '<div class="empty-state"><div class="icon">❌</div><p>Failed to load</p></div>';
+                    return;
+                }
+
+                const sessions = data.sessions || [];
                 
+                // Stats
+                const connected = sessions.filter(s => s.status === 'connected').length;
+                const total = sessions.length;
+                stats.innerHTML = `
+                    <div class="stat"><div class="num">${total}</div><div class="label">Total</div></div>
+                    <div class="stat"><div class="num" style="color:#28a745">${connected}</div><div class="label">Online</div></div>
+                    <div class="stat"><div class="num" style="color:#dc3545">${total - connected}</div><div class="label">Offline</div></div>
+                `;
+
+                if (sessions.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>No sessions yet</p><p style="font-size:0.9em;color:#666">Click "Add New Session" to get started</p></div>';
+                    return;
+                }
+
+                list.innerHTML = sessions.map(s => {
+                    const cls = s.status === 'connected' ? 's-connected' :
+                               s.status === 'connecting' ? 's-connecting' : 's-inactive';
+                    const isConnected = s.status === 'connected';
+                    const name = escapeHtml(s.botName || s.id);
+                    const phone = escapeHtml(s.phoneNumber || 'N/A');
+
+                    return `
+                    <div class="session-card">
+                        <div class="session-info">
+                            <h3>${name}</h3>
+                            <div class="sid">${escapeHtml(s.id)} | 📱 ${phone}</div>
+                            <span class="status-badge ${cls}">${s.status}</span>
+                        </div>
+                        <div class="actions">
+                            ${isConnected 
+                                ? `<button class="btn btn-disconnect" onclick="disconnectSession('${escapeHtml(s.id)}')">❌ Disconnect</button>`
+                                : `<button class="btn btn-connect" onclick="connectSession('${escapeHtml(s.id)}')">🔌 Connect</button>`
+                            }
+                            <button class="btn btn-qr" onclick="showQR('${escapeHtml(s.id)}')">📱 QR</button>
+                            <button class="btn btn-delete" onclick="deleteSession('${escapeHtml(s.id)}')">🗑️</button>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (err) {
+                document.getElementById('sessionsList').innerHTML = '<div class="empty-state"><div class="icon">❌</div><p>Connection error</p></div>';
+            }
+        }
+
+        function escapeHtml(text) {
+            const d = document.createElement('div');
+            d.textContent = text;
+            return d.innerHTML;
+        }
+
+        // ==================== FORM ====================
+        function toggleForm() {
+            const form = document.getElementById('createForm');
+            form.classList.toggle('active');
+            if (form.classList.contains('active')) {
+                document.getElementById('newId').value = '';
+                document.getElementById('newName').value = '';
+                document.getElementById('newPhone').value = '';
+                document.getElementById('newId').focus();
+            }
+        }
+
+        async function createSession() {
+            const sessionId = document.getElementById('newId').value.trim();
+            const botName = document.getElementById('newName').value.trim();
+            const ownerNumber = document.getElementById('newPhone').value.trim();
+
+            if (!sessionId) return toast('Session ID is required', 'error');
+
+            try {
+                const res = await fetch(API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId, botName, ownerNumber })
+                });
+                const data = await res.json();
+
                 if (data.success) {
-                    showMessage(data.message, 'success');
-                    // Show QR container
-                    qrContainer.classList.add('active');
-                    qrLoading.style.display = 'block';
-                    qrImage.style.display = 'none';
-                    
-                    // Start polling for QR code
-                    startQRPolling();
-                    
-                    // Refresh status after delay
-                    setTimeout(checkStatus, 2000);
+                    toggleForm();
+                    toast('Session created!', 'success');
+                    loadSessions();
                 } else {
-                    showMessage(data.error || 'Connection failed', 'error');
+                    toast(data.error || 'Failed', 'error');
                 }
-            } catch (error) {
-                showMessage('Error connecting', 'error');
+            } catch (err) {
+                toast('Failed to create session', 'error');
             }
         }
 
-        async function viewQRCode() {
+        // ==================== ACTIONS ====================
+        async function connectSession(id) {
             try {
-                qrContainer.classList.add('active');
-                qrLoading.style.display = 'block';
-                qrImage.style.display = 'none';
-                
-                const response = await fetch('/qr');
-                const data = await response.json();
-                
-                if (data.success && data.qr) {
-                    qrImage.src = data.qr;
-                    qrImage.style.display = 'block';
-                    qrLoading.style.display = 'none';
-                    showMessage('Scan this QR code with WhatsApp', 'info');
-                    startQRPolling();
-                } else if (data.needConnection) {
-                    showMessage('Click Connect first to generate QR code', 'error');
-                    qrContainer.classList.remove('active');
-                } else {
-                    showMessage(data.message || 'No QR available', 'info');
-                }
-            } catch (error) {
-                showMessage('Error loading QR', 'error');
-            }
-        }
-
-        function startQRPolling() {
-            stopQRPolling();
-            qrPollInterval = setInterval(async () => {
-                try {
-                    const response = await fetch('/qr-status');
-                    const data = await response.json();
-                    
-                    if (data.connected) {
-                        // Connected!
-                        stopQRPolling();
-                        qrContainer.classList.remove('active');
-                        qrImage.style.display = 'none';
-                        showMessage('✅ Connected successfully!', 'success');
-                        currentStatus.connected = true;
-                        updateUI();
-                    } else if (data.qr) {
-                        // Update QR code
-                        qrImage.src = data.qr;
-                        qrImage.style.display = 'block';
-                        qrLoading.style.display = 'none';
-                        if (data.qrScanned) {
-                            showMessage('QR scanned! Waiting for confirmation...', 'info');
-                        }
-                    }
-                } catch (error) {
-                    console.error('QR poll error:', error);
-                }
-            }, 2000);
-        }
-
-        function stopQRPolling() {
-            if (qrPollInterval) {
-                clearInterval(qrPollInterval);
-                qrPollInterval = null;
-            }
-        }
-
-        async function disconnectWhatsApp() {
-            if (!confirm('Disconnect from WhatsApp?')) return;
-            
-            try {
-                showMessage('Disconnecting...', 'info');
-                const response = await fetch('/disconnect', { method: 'POST' });
-                const data = await response.json();
-                
+                const res = await fetch(`${API}/${id}/connect`, { method: 'POST' });
+                const data = await res.json();
                 if (data.success) {
-                    showMessage('Disconnected!', 'success');
-                    stopQRPolling();
-                    qrContainer.classList.remove('active');
-                    currentStatus.connected = false;
-                    updateUI();
+                    if (data.needQr) showQR(id);
+                    toast(data.message || 'Connecting...', 'success');
+                    setTimeout(loadSessions, 2000);
                 }
-            } catch (error) {
-                showMessage('Error disconnecting', 'error');
+            } catch (err) {
+                toast('Connection failed', 'error');
             }
         }
 
-        async function deleteSession() {
-            if (!confirm('Delete session? You will need to scan QR again.')) return;
-            
+        async function disconnectSession(id) {
+            if (!confirm(`Disconnect "${id}"?`)) return;
             try {
-                const response = await fetch('/delete-session', { method: 'DELETE' });
-                const data = await response.json();
-                
-                if (data.success) {
-                    showMessage('Session deleted!', 'success');
-                    stopQRPolling();
-                    qrContainer.classList.remove('active');
-                    currentStatus = { connected: false, sessionExists: false };
-                    updateUI();
-                }
-            } catch (error) {
-                showMessage('Error deleting session', 'error');
+                await fetch(`${API}/${id}/disconnect`, { method: 'POST' });
+                toast('Disconnected', 'success');
+                loadSessions();
+            } catch (err) {
+                toast('Failed to disconnect', 'error');
             }
         }
 
-        // Initialize
-        checkStatus();
-        setInterval(checkStatus, 5000);
+        async function deleteSession(id) {
+            if (!confirm(`Delete "${id}" permanently?`)) return;
+            try {
+                await fetch(`${API}/${id}`, { method: 'DELETE' });
+                toast('Deleted', 'success');
+                loadSessions();
+            } catch (err) {
+                toast('Failed to delete', 'error');
+            }
+        }
 
-        // Cleanup
-        window.addEventListener('beforeunload', stopQRPolling);
+        // ==================== QR ====================
+        function showQR(id) {
+            currentQR = id;
+            document.getElementById('qrOverlay').classList.add('active');
+            document.getElementById('qrImage').src = '';
+            document.getElementById('qrStatus').textContent = 'Loading QR...';
+            document.getElementById('qrStatus').style.color = '#ffc107';
+            
+            pollQR();
+            if (qrTimer) clearInterval(qrTimer);
+            qrTimer = setInterval(pollQR, 2000);
+        }
+
+        async function pollQR() {
+            if (!currentQR) return;
+            try {
+                const res = await fetch(`${API}/${currentQR}/status`);
+                const data = await res.json();
+
+                if (data.connected) {
+                    document.getElementById('qrStatus').textContent = '✅ Connected!';
+                    document.getElementById('qrStatus').style.color = '#28a745';
+                    setTimeout(closeQR, 1500);
+                    loadSessions();
+                } else if (data.qr) {
+                    document.getElementById('qrImage').src = data.qr;
+                    document.getElementById('qrStatus').textContent = data.qrScanned ? '📱 Scanned! Confirming...' : '📱 Scan with WhatsApp';
+                    document.getElementById('qrStatus').style.color = data.qrScanned ? '#ffc107' : '#fff';
+                }
+            } catch (err) {
+                console.error('QR poll:', err);
+            }
+        }
+
+        function closeQR() {
+            document.getElementById('qrOverlay').classList.remove('active');
+            if (qrTimer) { clearInterval(qrTimer); qrTimer = null; }
+            currentQR = null;
+            loadSessions();
+        }
+
+        // ==================== INIT ====================
+        loadSessions();
+        setInterval(loadSessions, 10000);
+
+        // Close form on Escape
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                document.getElementById('createForm').classList.remove('active');
+                closeQR();
+            }
+        });
     </script>
 </body>
 </html>
