@@ -7,26 +7,52 @@ const CATEGORY_EMOJIS = {
     admin: '👑', ai: '🤖', media: '🖼️', bug: '🐛', utility: '🔧'
 };
 
-function command(name, options = {}) {
-    const { aliases: cmdAliases = [], category = 'general', desc = '' } = options;
-    return function(target, propertyKey, descriptor) {
-        const fn = descriptor.value;
-        const cmdName = name || propertyKey;
-        commands.set(cmdName.toLowerCase(), { execute: fn, category, desc });
+const CATEGORY_NAMES = {
+    general: 'General', fun: 'Fun', group: 'Group',
+    settings: 'Settings', admin: 'Admin', ai: 'AI',
+    media: 'Media', bug: 'Bug', utility: 'Utility'
+};
 
-        if (!categories[category]) {
-            categories[category] = { name: category, emoji: CATEGORY_EMOJIS[category] || '📋', cmds: [] };
-        }
-        categories[category].cmds.push(cmdName);
+// Initialize all categories with empty command arrays
+const ALL_CATEGORIES = ['general', 'fun', 'group', 'settings', 'admin', 'ai', 'media', 'bug', 'utility'];
 
-        for (const alias of cmdAliases) {
-            aliases.set(alias.toLowerCase(), cmdName.toLowerCase());
-        }
-        return descriptor;
+for (const cat of ALL_CATEGORIES) {
+    categories[cat] = {
+        name: CATEGORY_NAMES[cat] || cat,
+        emoji: CATEGORY_EMOJIS[cat] || '📋',
+        cmds: []
     };
 }
 
-// Import all category commands
+// Override Map.set to auto-track categories
+const originalSet = commands.set.bind(commands);
+commands.set = function(key, value) {
+    const result = originalSet(key, value);
+    if (value && value.category && categories[value.category]) {
+        if (!categories[value.category].cmds.includes(key)) {
+            categories[value.category].cmds.push(key);
+        }
+    }
+    return result;
+};
+
+// Override Map.delete to auto-remove from categories
+const originalDelete = commands.delete.bind(commands);
+commands.delete = function(key) {
+    const cmd = commands.get(key);
+    if (cmd && cmd.category && categories[cmd.category]) {
+        const idx = categories[cmd.category].cmds.indexOf(key);
+        if (idx !== -1) categories[cmd.category].cmds.splice(idx, 1);
+    }
+    return originalDelete(key);
+};
+
+// Alias support
+function addAlias(alias, commandName) {
+    aliases.set(alias.toLowerCase(), commandName.toLowerCase());
+}
+
+// ==================== IMPORT ALL COMMAND MODULES ====================
 const generalCommands = require('./general');
 const funCommands = require('./fun');
 const groupCommands = require('./group');
@@ -37,6 +63,7 @@ const mediaCommands = require('./media');
 const bugCommands = require('./bug');
 const utilityCommands = require('./utility');
 
+// ==================== REGISTER ALL ====================
 function registerAllCommands() {
     const allModules = [
         { mod: generalCommands, cat: 'general' },
@@ -51,22 +78,64 @@ function registerAllCommands() {
     ];
 
     for (const { mod, cat } of allModules) {
-        if (mod && mod.register) {
+        if (mod && typeof mod.register === 'function') {
             mod.register(commands, categories, cat);
         }
     }
+
+    // Log registration
+    console.log(`\n📋 Commands Registered:`);
+    for (const cat of ALL_CATEGORIES) {
+        const count = categories[cat]?.cmds?.length || 0;
+        const emoji = CATEGORY_EMOJIS[cat] || '📋';
+        const name = CATEGORY_NAMES[cat] || cat;
+        console.log(`   ${emoji} ${name}: ${count} commands`);
+    }
+    console.log(`   📊 Total: ${commands.size} commands\n`);
 }
 
+// ==================== EXECUTE COMMAND ====================
 async function executeCommand(cmdName, sock, msg, args, config) {
-    const name = aliases.get(cmdName.toLowerCase()) || cmdName.toLowerCase();
-    const cmd = commands.get(name);
+    // Check direct match
+    let cmd = commands.get(cmdName.toLowerCase());
+    
+    // Check aliases
+    if (!cmd) {
+        const aliasTarget = aliases.get(cmdName.toLowerCase());
+        if (aliasTarget) {
+            cmd = commands.get(aliasTarget);
+        }
+    }
+    
     if (!cmd) return false;
+    
     await cmd.execute(sock, msg, args, config);
     return true;
 }
 
-function getCommands() { return commands; }
-function getCategories() { return categories; }
-function getCategoryEmoji(cat) { return CATEGORY_EMOJIS[cat] || '📋'; }
+// ==================== GETTERS ====================
+function getCommands() { 
+    return commands; 
+}
 
-module.exports = { command, registerAllCommands, executeCommand, getCommands, getCategories, getCategoryEmoji };
+function getCategories() { 
+    return categories; 
+}
+
+function getCategoryEmoji(cat) { 
+    return CATEGORY_EMOJIS[cat] || '📋'; 
+}
+
+function getCategoryName(cat) {
+    return CATEGORY_NAMES[cat] || cat;
+}
+
+module.exports = { 
+    registerAllCommands, 
+    executeCommand, 
+    getCommands, 
+    getCategories, 
+    getCategoryEmoji,
+    getCategoryName,
+    addAlias
+};

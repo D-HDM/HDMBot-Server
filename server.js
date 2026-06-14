@@ -1,4 +1,8 @@
 require('dotenv').config();
+
+// ==================== DNS SETUP (MUST BE FIRST) ====================
+require('./scripts/dnsSet');
+
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -13,15 +17,14 @@ const SESSION_ID = process.env.SESSION_ID || 'HDM-BOT-SESSION';
 
 // ==================== MIDDLEWARE ====================
 app.use(express.json());
-app.use(express.static('public'));
 
-// Silent logging for polling endpoints
+// Request logging
 app.use((req, res, next) => {
     const start = Date.now();
     res.on('finish', () => {
         const duration = Date.now() - start;
         const skip = ['/qr-status', '/status'];
-        const isSkip = skip.some(p => req.url === p || req.url.startsWith('/api/sessions/') && req.url.endsWith('/status'));
+        const isSkip = skip.some(p => req.url === p || (req.url.startsWith('/api/sessions/') && req.url.endsWith('/status')));
         
         if (!isSkip || res.statusCode >= 400) {
             console.log(`${new Date().toISOString()} ${req.method} ${req.url} ${res.statusCode} ${duration}ms`);
@@ -30,11 +33,14 @@ app.use((req, res, next) => {
     next();
 });
 
-// ==================== ROUTES ====================
+// ==================== API ROUTES (BEFORE STATIC) ====================
 
+// Session management API
 app.use('/api/sessions', sessionRoutes);
 
+// ========== HOME - JSON ==========
 app.get('/', (req, res) => {
+    const { getCommands } = require('./whatsapp/commands');
     res.json({
         success: true,
         name: BOT_NAME,
@@ -44,16 +50,19 @@ app.get('/', (req, res) => {
         status: client.getConnectionStatus(),
         storage: client.isUsingMongoDB() ? 'MongoDB' : 'Local',
         powered: 'HDM',
+        commands: getCommands().size,
+        uptime: process.uptime(),
         endpoints: {
             home: '/',
             api: '/api',
             health: '/health',
-            scan: '/scan',
-            sessions: '/api/sessions'
+            sessions: '/sessions',
+            sessionsApi: '/api/sessions'
         }
     });
 });
 
+// ========== API - JSON ==========
 app.get('/api', (req, res) => {
     const { getCommands } = require('./whatsapp/commands');
     res.json({
@@ -81,6 +90,7 @@ app.get('/api', (req, res) => {
     });
 });
 
+// ========== HEALTH - JSON ==========
 app.get('/health', (req, res) => {
     res.status(200).json({
         success: true,
@@ -91,10 +101,17 @@ app.get('/health', (req, res) => {
     });
 });
 
-app.get('/scan', (req, res) => {
+// ========== SESSIONS PANEL - HTML ==========
+app.get('/sessions', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// ========== SCAN - REDIRECT ==========
+app.get('/scan', (req, res) => {
+    res.redirect('/sessions');
+});
+
+// ========== STATUS - JSON ==========
 app.get('/status', (req, res) => {
     res.json({
         success: true,
@@ -108,6 +125,7 @@ app.get('/status', (req, res) => {
     });
 });
 
+// ========== CONNECT ==========
 app.post('/connect', async (req, res) => {
     try {
         const { getSessionManager } = require('./whatsapp/sessionManager');
@@ -125,6 +143,7 @@ app.post('/connect', async (req, res) => {
     }
 });
 
+// ========== QR ==========
 app.get('/qr', (req, res) => {
     const qr = client.getQRCode();
     if (qr) return res.json({ success: true, qr });
@@ -132,6 +151,7 @@ app.get('/qr', (req, res) => {
     res.json({ success: false, error: 'No QR available.', needConnection: true });
 });
 
+// ========== QR STATUS ==========
 app.get('/qr-status', (req, res) => {
     res.json({
         connected: client.getConnectionStatus() === 'connected',
@@ -141,6 +161,7 @@ app.get('/qr-status', (req, res) => {
     });
 });
 
+// ========== DISCONNECT ==========
 app.post('/disconnect', async (req, res) => {
     try {
         await client.disconnect();
@@ -150,6 +171,7 @@ app.post('/disconnect', async (req, res) => {
     }
 });
 
+// ========== DELETE SESSION ==========
 app.delete('/delete-session', async (req, res) => {
     try {
         await client.deleteSession();
@@ -159,6 +181,10 @@ app.delete('/delete-session', async (req, res) => {
     }
 });
 
+// ==================== STATIC FILES (AFTER ALL ROUTES) ====================
+app.use(express.static('public'));
+
+// ========== 404 - JSON ==========
 app.use((req, res) => {
     res.status(404).json({
         success: false,
@@ -170,7 +196,7 @@ app.use((req, res) => {
 
 // ==================== STARTUP ====================
 async function startServer() {
-    ['sessions', 'logs', 'temp', 'uploads'].forEach(dir => {
+    ['sessions', 'logs', 'temp', 'uploads', 'scripts'].forEach(dir => {
         const p = path.join(__dirname, dir);
         if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
     });
@@ -184,9 +210,11 @@ async function startServer() {
         console.log(`║  👑 Owner: ${OWNER_NAME}              ║`);
         console.log(`║  💾 ${client.isUsingMongoDB() ? 'MongoDB' : 'Local'} | 👥 Multi-Session      ║`);
         console.log('╠══════════════════════════════════════╣');
-        console.log(`║  📱 /scan                             ║`);
-        console.log(`║  🔌 /api                              ║`);
-        console.log(`║  📋 /api/sessions                     ║`);
+        console.log(`║  🏠 /         → JSON                 ║`);
+        console.log(`║  📱 /sessions → Panel                ║`);
+        console.log(`║  🔌 /api      → Info                 ║`);
+        console.log(`║  ❤️ /health   → Health               ║`);
+        console.log('╠══════════════════════════════════════╣');
         console.log(`║  ⏰ ${new Date().toLocaleString()}     ║`);
         console.log('╚══════════════════════════════════════╝');
         console.log('');
