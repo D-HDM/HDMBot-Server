@@ -4,14 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HDM BOT - Session Manager</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23667eea'/><text x='50' y='65' text-anchor='middle' font-size='50' font-weight='bold' fill='white' font-family='Arial'>HDM</text></svg>">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23667eea'/><text x='50' y='68' text-anchor='middle' font-size='54'>🤖</text></svg>">
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e,#16213e);min-height:100vh;color:#fff;padding:20px}
-        .container{max-width:850px;margin:0 auto}
+        body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e,#16213e);min-height:100vh;color:#fff}
+
+        .login-container{display:flex;justify-content:center;align-items:center;min-height:100vh;padding:20px}
+        .login-box{background:#1e1e3a;border-radius:20px;padding:40px;max-width:400px;width:100%;border:1px solid #2a2a4a;text-align:center}
+        .login-box .bot-icon{font-size:60px;margin-bottom:15px}
+        .login-box h1{font-size:1.8em;color:#667eea;margin-bottom:5px}
+        .login-box p{color:#888;margin-bottom:25px;font-size:0.9em}
+        .login-box input{width:100%;padding:12px;border-radius:8px;border:1px solid #2a2a4a;background:#12122a;color:#fff;margin:8px 0;font-size:0.95em}
+        .login-box input:focus{outline:none;border-color:#667eea}
+        .login-box .btn-login{width:100%;padding:12px;border:none;border-radius:8px;background:#667eea;color:#fff;font-size:1em;font-weight:600;cursor:pointer;margin-top:15px;transition:all 0.3s}
+        .login-box .btn-login:hover{opacity:0.9}
+        .login-box .error{color:#dc3545;font-size:0.85em;margin-top:10px;display:none}
+        .login-box .error.show{display:block}
+
+        .container{max-width:850px;margin:0 auto;padding:20px;display:none}
+        .container.show{display:block}
         .header{text-align:center;padding:30px 0 20px}
         .header h1{font-size:2em;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
         .header p{color:#888;margin-top:5px}
+        .logout-btn{background:transparent;border:1px solid #dc3545;color:#dc3545;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:0.85em;margin-top:10px;transition:all 0.3s}
+        .logout-btn:hover{background:#dc3545;color:#fff}
 
         .stats-bar{display:flex;gap:12px;justify-content:center;margin-bottom:25px;flex-wrap:wrap}
         .stat{background:#1e1e3a;border-radius:12px;padding:15px 22px;text-align:center;border:1px solid #2a2a4a;min-width:95px}
@@ -20,9 +36,9 @@
 
         .top-actions{display:flex;gap:10px;margin-bottom:20px}
         .btn-default{background:linear-gradient(135deg,#28a745,#20c997);color:#fff;padding:14px 20px;border:none;border-radius:12px;cursor:pointer;font-size:0.95em;font-weight:600;transition:all 0.3s;flex:1}
-        .btn-default:hover{opacity:0.9;transform:translateY(-1px)}
+        .btn-default:hover{opacity:0.9}
         .add-btn{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:14px 20px;border:none;border-radius:12px;cursor:pointer;font-size:0.95em;font-weight:600;transition:all 0.3s;flex:1}
-        .add-btn:hover{opacity:0.9;transform:translateY(-1px)}
+        .add-btn:hover{opacity:0.9}
 
         .form-card{display:none;background:#1e1e3a;padding:25px;border-radius:15px;margin-bottom:20px;border:1px solid #2a2a4a}
         .form-card.active{display:block}
@@ -31,10 +47,8 @@
         .form-card input:focus{outline:none;border-color:#667eea}
         .form-actions{display:flex;gap:10px;margin-top:15px}
         .form-actions button{flex:1;padding:12px;border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:all 0.2s}
-        .form-actions button:hover{opacity:0.85}
 
         .session-card{background:#1e1e3a;border-radius:15px;padding:20px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;border:1px solid #2a2a4a;gap:15px;flex-wrap:wrap}
-        .session-card:hover{border-color:#667eea55}
         .session-card.default{border-color:#667eea;border-width:2px;background:#1a1a3e}
         .default-badge{background:#667eea;color:#fff;font-size:0.65em;padding:2px 8px;border-radius:8px;margin-left:8px;font-weight:700}
         .session-info{flex:1;min-width:180px}
@@ -42,19 +56,19 @@
         .session-info .sid{color:#666;font-size:0.8em;margin-bottom:6px}
 
         .status-badge{display:inline-block;font-size:0.75em;padding:4px 10px;border-radius:10px;font-weight:600}
-        .s-connected{background:#28a74522;color:#28a745;border:1px solid #28a74544}
-        .s-disconnected{background:#dc354522;color:#dc3545;border:1px solid #dc354544}
-        .s-connecting{background:#ffc10722;color:#ffc107;border:1px solid #ffc10744}
-        .s-inactive{background:#6c757d22;color:#6c757d;border:1px solid #6c757d44}
+        .s-connected{background:#28a74522;color:#28a745}
+        .s-disconnected{background:#dc354522;color:#dc3545}
+        .s-connecting{background:#ffc10722;color:#ffc107}
+        .s-inactive{background:#6c757d22;color:#6c757d}
 
         .actions{display:flex;gap:8px;flex-wrap:wrap}
         .btn{padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.85em;transition:all 0.2s;white-space:nowrap}
-        .btn:hover{opacity:0.85;transform:translateY(-1px)}
+        .btn:hover{opacity:0.85}
         .btn-connect{background:#667eea;color:#fff}
         .btn-disconnect{background:#f0ad4e;color:#000}
         .btn-qr{background:#6f42c1;color:#fff}
         .btn-delete{background:#dc3545;color:#fff}
-        .btn:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+        .btn:disabled{opacity:0.4;cursor:not-allowed}
 
         .qr-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);justify-content:center;align-items:center;z-index:9999}
         .qr-overlay.active{display:flex}
@@ -62,10 +76,8 @@
         .qr-box h3{color:#667eea;margin-bottom:10px}
         .qr-box img{max-width:250px;border-radius:12px;margin:15px 0}
         .qr-box p{color:#999;margin:8px 0;font-size:0.9em}
-        .qr-box .btn{margin-top:10px}
 
         .empty-state{text-align:center;padding:60px 20px;color:#555}
-        .empty-state .icon{font-size:3em;margin-bottom:15px}
         .loading{text-align:center;padding:40px;color:#666}
         .spinner{display:inline-block;width:30px;height:30px;border:3px solid #2a2a4a;border-top-color:#667eea;border-radius:50%;animation:spin 0.8s linear infinite}
         @keyframes spin{to{transform:rotate(360deg)}}
@@ -78,264 +90,179 @@
         @media(max-width:600px){
             .top-actions{flex-direction:column}
             .session-card{flex-direction:column;align-items:stretch}
-            .actions{justify-content:center}
         }
     </style>
 </head>
 <body>
-    <div class="container">
+
+    <!-- LOGIN -->
+    <div class="login-container" id="loginPage">
+        <div class="login-box">
+            <div class="bot-icon">🤖</div>
+            <h1>HDM BOT</h1>
+            <p>Session Manager</p>
+            <input type="email" id="loginEmail" placeholder="Email" autofocus>
+            <input type="password" id="loginPassword" placeholder="Password">
+            <button class="btn-login" onclick="doLogin()">Sign In</button>
+            <p class="error" id="loginError">Invalid credentials</p>
+        </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="container" id="mainPanel">
         <div class="header">
             <h1>🤖 HDM BOT</h1>
             <p>Multi-Session Manager</p>
+            <button class="logout-btn" onclick="doLogout()">Logout</button>
         </div>
-
         <div class="stats-bar" id="statsBar"></div>
-
         <div class="top-actions">
-            <button class="btn-default" onclick="connectDefaultSession()">🔌 Connect Default Session</button>
-            <button class="add-btn" onclick="toggleForm()">+ Add New Session</button>
+            <button class="btn-default" onclick="connectDefaultSession()">🔌 Connect Default</button>
+            <button class="add-btn" onclick="toggleForm()">+ Add Session</button>
         </div>
-
         <div class="form-card" id="createForm">
-            <h3>Create New Session</h3>
-            <input type="text" id="newId" placeholder="Session ID * (letters, numbers, hyphens)">
-            <input type="text" id="newName" placeholder="Display Name (optional)">
-            <input type="text" id="newPhone" placeholder="Phone Number (optional)">
+            <h3>Create Session</h3>
+            <input type="text" id="newId" placeholder="Session ID *">
+            <input type="text" id="newName" placeholder="Display Name">
+            <input type="text" id="newPhone" placeholder="Phone Number">
             <div class="form-actions">
                 <button style="background:#667eea;color:#fff" onclick="createSession()">Create</button>
                 <button style="background:#dc3545;color:#fff" onclick="toggleForm()">Cancel</button>
             </div>
         </div>
-
-        <div id="sessionsList"><div class="loading"><div class="spinner"></div><p style="margin-top:15px">Loading sessions...</p></div></div>
+        <div id="sessionsList"><div class="loading"><div class="spinner"></div><p>Loading...</p></div></div>
     </div>
 
+    <!-- QR -->
     <div class="qr-overlay" id="qrOverlay">
         <div class="qr-box">
-            <h3>📱 Scan QR Code</h3>
-            <img id="qrImage" src="" alt="QR Code">
-            <p>WhatsApp → Settings → Linked Devices → Link a Device</p>
-            <p id="qrStatus" style="color:#ffc107">Waiting for QR...</p>
+            <h3>📱 Scan QR</h3>
+            <img id="qrImage" src="" alt="QR">
+            <p>WhatsApp → Linked Devices</p>
+            <p id="qrStatus">Waiting...</p>
             <button class="btn btn-delete" onclick="closeQR()">Close</button>
         </div>
     </div>
 
     <script>
+        const AUTH = { email: 'davismcintyre5@gmail.com', pass: 'Hdm@2002' };
         const API = '/api/sessions';
-        const DEFAULT_SESSION = 'HDM-BOT-SESSION';
-        let qrTimer = null;
-        let currentQR = null;
+        const DEFAULT = 'HDM-BOT-SESSION';
+        let qrTimer = null, currentQR = null;
 
-        function toast(msg, type = '') {
-            const el = document.createElement('div');
-            el.className = `toast ${type}`;
-            el.textContent = msg;
-            document.body.appendChild(el);
-            setTimeout(() => el.remove(), 3000);
+        function authed() { return sessionStorage.getItem('hdm_auth') === '1'; }
+        function doLogin() {
+            if (document.getElementById('loginEmail').value === AUTH.email && document.getElementById('loginPassword').value === AUTH.pass) {
+                sessionStorage.setItem('hdm_auth', '1');
+                document.getElementById('loginPage').style.display = 'none';
+                document.getElementById('mainPanel').classList.add('show');
+                loadSessions(); setInterval(loadSessions, 10000);
+            } else {
+                document.getElementById('loginError').classList.add('show');
+                setTimeout(() => document.getElementById('loginError').classList.remove('show'), 3000);
+            }
         }
+        function doLogout() { sessionStorage.removeItem('hdm_auth'); location.reload(); }
+        document.getElementById('loginPassword').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+        if (authed()) { document.getElementById('loginPage').style.display = 'none'; document.getElementById('mainPanel').classList.add('show'); loadSessions(); setInterval(loadSessions, 10000); }
+
+        function toast(m, t) { const e = document.createElement('div'); e.className = 'toast ' + (t || ''); e.textContent = m; document.body.appendChild(e); setTimeout(() => e.remove(), 3000); }
+        function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
         async function loadSessions() {
+            if (!authed()) return;
             try {
-                const res = await fetch(API);
-                const data = await res.json();
-                const list = document.getElementById('sessionsList');
-                const stats = document.getElementById('statsBar');
-
-                if (!data.success) {
-                    list.innerHTML = '<div class="empty-state"><div class="icon">❌</div><p>Failed to load</p></div>';
-                    return;
-                }
-
-                const sessions = data.sessions || [];
-                const connected = sessions.filter(s => s.status === 'connected').length;
-                const total = sessions.length;
-
-                stats.innerHTML = `
-                    <div class="stat"><div class="num">${total}</div><div class="label">Total</div></div>
-                    <div class="stat"><div class="num" style="color:#28a745">${connected}</div><div class="label">Online</div></div>
-                    <div class="stat"><div class="num" style="color:#dc3545">${total - connected}</div><div class="label">Offline</div></div>
-                `;
-
-                if (sessions.length === 0) {
-                    list.innerHTML = `<div class="empty-state"><div class="icon">📭</div><p>No sessions yet</p><p style="font-size:0.9em;color:#666">Click "Connect Default Session" or "Add New Session"</p></div>`;
-                    return;
-                }
-
+                const r = await fetch(API), d = await r.json();
+                const list = document.getElementById('sessionsList'), stats = document.getElementById('statsBar');
+                if (!d.success) { list.innerHTML = '<div class="empty-state">❌ Failed</div>'; return; }
+                const sessions = d.sessions || [], c = sessions.filter(s => s.status === 'connected').length;
+                stats.innerHTML = `<div class="stat"><div class="num">${sessions.length}</div><div class="label">Total</div></div><div class="stat"><div class="num" style="color:#28a745">${c}</div><div class="label">Online</div></div><div class="stat"><div class="num" style="color:#dc3545">${sessions.length-c}</div><div class="label">Offline</div></div>`;
+                if (!sessions.length) { list.innerHTML = '<div class="empty-state">📭 No sessions</div>'; return; }
                 list.innerHTML = sessions.map(s => {
-                    const cls = s.status === 'connected' ? 's-connected' :
-                               s.status === 'connecting' ? 's-connecting' : 's-inactive';
-                    const isConnected = s.status === 'connected';
-                    const name = escapeHtml(s.botName || s.id);
-                    const phone = escapeHtml(s.phoneNumber || 'N/A');
-                    const isDefault = s.id === DEFAULT_SESSION;
-
-                    return `
-                    <div class="session-card${isDefault ? ' default' : ''}">
-                        <div class="session-info">
-                            <h3>${name}${isDefault ? '<span class="default-badge">DEFAULT</span>' : ''}</h3>
-                            <div class="sid">ID: ${escapeHtml(s.id)} | 📱 ${phone}</div>
-                            <span class="status-badge ${cls}">${s.status}</span>
-                        </div>
-                        <div class="actions">
-                            ${isConnected 
-                                ? `<button class="btn btn-disconnect" onclick="disconnectSession('${escapeHtml(s.id)}')">❌ Disconnect</button>`
-                                : `<button class="btn btn-connect" onclick="connectSession('${escapeHtml(s.id)}')">🔌 Connect</button>`
-                            }
-                            <button class="btn btn-qr" onclick="showQR('${escapeHtml(s.id)}')">📱 QR</button>
-                            ${!isDefault ? `<button class="btn btn-delete" onclick="deleteSession('${escapeHtml(s.id)}')">🗑️</button>` : ''}
-                        </div>
-                    </div>`;
+                    const conn = s.status === 'connected', cls = conn ? 's-connected' : (s.status === 'connecting' ? 's-connecting' : 's-inactive');
+                    return `<div class="session-card${s.id===DEFAULT?' default':''}"><div class="session-info"><h3>${esc(s.botName||s.id)}${s.id===DEFAULT?'<span class="default-badge">DEFAULT</span>':''}</h3><div class="sid">${esc(s.id)} | 📱 ${esc(s.phoneNumber||'N/A')}</div><span class="status-badge ${cls}">${s.status}</span></div><div class="actions">${conn?`<button class="btn btn-disconnect" onclick="disconnect('${esc(s.id)}')">❌</button>`:`<button class="btn btn-connect" onclick="connect('${esc(s.id)}')">🔌</button>`}<button class="btn btn-qr" onclick="showQR('${esc(s.id)}')">📱</button>${s.id!==DEFAULT?`<button class="btn btn-delete" onclick="del('${esc(s.id)}')">🗑️</button>`:''}</div></div>`;
                 }).join('');
-            } catch (err) {
-                document.getElementById('sessionsList').innerHTML = '<div class="empty-state"><div class="icon">❌</div><p>Connection error</p></div>';
+            } catch { document.getElementById('sessionsList').innerHTML = '<div class="empty-state">❌ Error</div>'; }
+        }
+
+async function connectDefaultSession() {
+    try {
+        const r = await fetch(`${API}/${DEFAULT}/connect`, { method: 'POST' }), d = await r.json();
+        if (d.success) {
+            if (d.qr || d.needQr) showQR(DEFAULT);
+            toast('Connecting...', 'success');
+            setTimeout(loadSessions, 2000);
+        } else if (d.error && d.error.includes('Create')) {
+            // Auto-create default session
+            const cr = await fetch(API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId: DEFAULT, botName: 'HDM BOT', ownerNumber: '254768784909' })
+            });
+            const cd = await cr.json();
+            if (cd.success) {
+                toast('Session created! Connecting...', 'success');
+                const rr = await fetch(`${API}/${DEFAULT}/connect`, { method: 'POST' });
+                const rd = await rr.json();
+                if (rd.qr || rd.needQr) showQR(DEFAULT);
+                setTimeout(loadSessions, 2000);
             }
+        } else {
+            toast(d.error || 'Failed', 'error');
         }
-
-        function escapeHtml(text) {
-            const d = document.createElement('div');
-            d.textContent = text;
-            return d.innerHTML;
-        }
-
-        async function connectDefaultSession() {
-            try {
-                toast('Connecting default session...', '');
-                const res = await fetch(`${API}/${DEFAULT_SESSION}/connect`, { method: 'POST' });
-                const data = await res.json();
-                if (data.success) {
-                    if (data.needQr || data.qr) showQR(DEFAULT_SESSION);
-                    toast(data.message || 'Connecting...', 'success');
-                    setTimeout(loadSessions, 2000);
-                } else {
-                    toast(data.error || 'Failed', 'error');
-                }
-            } catch (err) {
-                toast('Connection failed', 'error');
-            }
-        }
-
-        function toggleForm() {
-            const form = document.getElementById('createForm');
-            form.classList.toggle('active');
-            if (form.classList.contains('active')) {
-                document.getElementById('newId').value = '';
-                document.getElementById('newName').value = '';
-                document.getElementById('newPhone').value = '';
-                document.getElementById('newId').focus();
-            }
-        }
-
+    } catch { toast('Failed', 'error'); }
+}
+        function toggleForm() { document.getElementById('createForm').classList.toggle('active'); }
         async function createSession() {
-            const sessionId = document.getElementById('newId').value.trim();
-            const botName = document.getElementById('newName').value.trim();
-            const ownerNumber = document.getElementById('newPhone').value.trim();
-
-            if (!sessionId) return toast('Session ID is required', 'error');
-
+            const id = document.getElementById('newId').value.trim();
+            if (!id) return toast('ID required', 'error');
             try {
-                const res = await fetch(API, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sessionId, botName, ownerNumber })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    toggleForm();
-                    toast('Session created!', 'success');
-                    loadSessions();
-                } else {
-                    toast(data.error || 'Failed', 'error');
-                }
-            } catch (err) {
-                toast('Failed to create session', 'error');
-            }
+                const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: id, botName: document.getElementById('newName').value.trim(), ownerNumber: document.getElementById('newPhone').value.trim() }) });
+                const d = await r.json();
+                if (d.success) { toggleForm(); toast('Created!', 'success'); loadSessions(); }
+                else toast(d.error || 'Failed', 'error');
+            } catch { toast('Failed', 'error'); }
         }
 
-        async function connectSession(id) {
+        async function connect(id) {
             try {
-                const res = await fetch(`${API}/${id}/connect`, { method: 'POST' });
-                const data = await res.json();
-                if (data.success) {
-                    if (data.needQr || data.qr) showQR(id);
-                    toast(data.message || 'Connecting...', 'success');
-                    setTimeout(loadSessions, 2000);
-                } else {
-                    toast(data.error || 'Failed', 'error');
-                }
-            } catch (err) {
-                toast('Connection failed', 'error');
-            }
+                const r = await fetch(`${API}/${id}/connect`, { method: 'POST' }), d = await r.json();
+                if (d.success) { if (d.qr) showQR(id); toast('Connecting...', 'success'); setTimeout(loadSessions, 2000); }
+                else toast(d.error || 'Failed', 'error');
+            } catch { toast('Failed', 'error'); }
         }
 
-        async function disconnectSession(id) {
-            if (!confirm(`Disconnect "${id}"?`)) return;
-            try {
-                await fetch(`${API}/${id}/disconnect`, { method: 'POST' });
-                toast('Disconnected', 'success');
-                loadSessions();
-            } catch (err) {
-                toast('Failed to disconnect', 'error');
-            }
+        async function disconnect(id) {
+            if (!confirm('Disconnect?')) return;
+            try { await fetch(`${API}/${id}/disconnect`, { method: 'POST' }); toast('Disconnected', 'success'); loadSessions(); }
+            catch { toast('Failed', 'error'); }
         }
 
-        async function deleteSession(id) {
-            if (id === DEFAULT_SESSION) return toast('Cannot delete default session', 'error');
-            if (!confirm(`Delete "${id}" permanently?`)) return;
-            try {
-                await fetch(`${API}/${id}`, { method: 'DELETE' });
-                toast('Deleted', 'success');
-                loadSessions();
-            } catch (err) {
-                toast('Failed to delete', 'error');
-            }
+        async function del(id) {
+            if (!confirm('Delete?')) return;
+            try { await fetch(`${API}/${id}`, { method: 'DELETE' }); toast('Deleted', 'success'); loadSessions(); }
+            catch { toast('Failed', 'error'); }
         }
 
         function showQR(id) {
             currentQR = id;
             document.getElementById('qrOverlay').classList.add('active');
             document.getElementById('qrImage').src = '';
-            document.getElementById('qrStatus').textContent = 'Loading QR...';
-            document.getElementById('qrStatus').style.color = '#ffc107';
-            pollQR();
-            if (qrTimer) clearInterval(qrTimer);
-            qrTimer = setInterval(pollQR, 2000);
+            document.getElementById('qrStatus').textContent = 'Loading...';
+            pollQR(); if (qrTimer) clearInterval(qrTimer); qrTimer = setInterval(pollQR, 2000);
         }
 
         async function pollQR() {
             if (!currentQR) return;
             try {
-                const res = await fetch(`${API}/${currentQR}/status`);
-                const data = await res.json();
-                if (data.connected) {
-                    document.getElementById('qrStatus').textContent = '✅ Connected!';
-                    document.getElementById('qrStatus').style.color = '#28a745';
-                    setTimeout(closeQR, 1500);
-                    loadSessions();
-                } else if (data.qr) {
-                    document.getElementById('qrImage').src = data.qr;
-                    document.getElementById('qrStatus').textContent = data.qrScanned ? '📱 Scanned! Confirming...' : '📱 Scan with WhatsApp';
-                    document.getElementById('qrStatus').style.color = data.qrScanned ? '#ffc107' : '#fff';
-                }
-            } catch (err) {}
+                const r = await fetch(`${API}/${currentQR}/status`), d = await r.json();
+                if (d.connected) { document.getElementById('qrStatus').textContent = '✅ Connected!'; setTimeout(closeQR, 1500); loadSessions(); }
+                else if (d.qr) { document.getElementById('qrImage').src = d.qr; document.getElementById('qrStatus').textContent = d.qrScanned ? '📱 Scanned!' : '📱 Scan'; }
+            } catch {}
         }
 
-        function closeQR() {
-            document.getElementById('qrOverlay').classList.remove('active');
-            if (qrTimer) { clearInterval(qrTimer); qrTimer = null; }
-            currentQR = null;
-            loadSessions();
-        }
-
-        // Init
-        loadSessions();
-        setInterval(loadSessions, 10000);
-
-        document.addEventListener('keydown', e => {
-            if (e.key === 'Escape') {
-                document.getElementById('createForm').classList.remove('active');
-                closeQR();
-            }
-        });
+        function closeQR() { document.getElementById('qrOverlay').classList.remove('active'); if (qrTimer) { clearInterval(qrTimer); qrTimer = null; } currentQR = null; }
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') { document.getElementById('createForm').classList.remove('active'); closeQR(); } });
     </script>
 </body>
 </html>
