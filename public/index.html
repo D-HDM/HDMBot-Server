@@ -11,7 +11,7 @@
         .container{max-width:850px;margin:0 auto}
         .header{text-align:center;padding:30px 0 20px}
         .header h1{font-size:2em;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-        .header p{color:#888;margin-top:5px;font-size:0.95em}
+        .header p{color:#888;margin-top:5px}
 
         .stats-bar{display:flex;gap:12px;justify-content:center;margin-bottom:25px;flex-wrap:wrap}
         .stat{background:#1e1e3a;border-radius:12px;padding:15px 22px;text-align:center;border:1px solid #2a2a4a;min-width:95px}
@@ -126,7 +126,6 @@
         let qrTimer = null;
         let currentQR = null;
 
-        // ==================== TOAST ====================
         function toast(msg, type = '') {
             const el = document.createElement('div');
             el.className = `toast ${type}`;
@@ -135,7 +134,6 @@
             setTimeout(() => el.remove(), 3000);
         }
 
-        // ==================== LOAD SESSIONS ====================
         async function loadSessions() {
             try {
                 const res = await fetch(API);
@@ -199,43 +197,23 @@
             return d.innerHTML;
         }
 
-        // ==================== CONNECT DEFAULT ====================
-async function connectDefaultSession() {
-    try {
-        toast('Connecting default session...', '');
-        const res = await fetch(`${API}/${DEFAULT_SESSION}/connect`, { method: 'POST' });
-        const data = await res.json();
-        if (data.success) {
-            if (data.needQr || data.qr) showQR(DEFAULT_SESSION);
-            toast(data.message || 'Connecting...', 'success');
-            setTimeout(loadSessions, 2000);
-        } else {
-            // If session doesn't exist yet, create it first
-            if (data.error?.includes('not found') || data.error?.includes('Create')) {
-                toast('Creating default session first...', '');
-                const createRes = await fetch(API, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sessionId: DEFAULT_SESSION, botName: 'HDM BOT', ownerNumber: '254768784909' })
-                });
-                const createData = await createRes.json();
-                if (createData.success) {
-                    toast('Session created! Connecting...', 'success');
-                    const retryRes = await fetch(`${API}/${DEFAULT_SESSION}/connect`, { method: 'POST' });
-                    const retryData = await retryRes.json();
-                    if (retryData.qr || retryData.needQr) showQR(DEFAULT_SESSION);
+        async function connectDefaultSession() {
+            try {
+                toast('Connecting default session...', '');
+                const res = await fetch(`${API}/${DEFAULT_SESSION}/connect`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    if (data.needQr || data.qr) showQR(DEFAULT_SESSION);
+                    toast(data.message || 'Connecting...', 'success');
                     setTimeout(loadSessions, 2000);
+                } else {
+                    toast(data.error || 'Failed', 'error');
                 }
-            } else {
-                toast(data.error || 'Failed', 'error');
+            } catch (err) {
+                toast('Connection failed', 'error');
             }
         }
-    } catch (err) {
-        toast('Connection failed', 'error');
-    }
-}
 
-        // ==================== FORM ====================
         function toggleForm() {
             const form = document.getElementById('createForm');
             form.classList.toggle('active');
@@ -261,7 +239,6 @@ async function connectDefaultSession() {
                     body: JSON.stringify({ sessionId, botName, ownerNumber })
                 });
                 const data = await res.json();
-
                 if (data.success) {
                     toggleForm();
                     toast('Session created!', 'success');
@@ -274,7 +251,6 @@ async function connectDefaultSession() {
             }
         }
 
-        // ==================== ACTIONS ====================
         async function connectSession(id) {
             try {
                 const res = await fetch(`${API}/${id}/connect`, { method: 'POST' });
@@ -314,7 +290,6 @@ async function connectDefaultSession() {
             }
         }
 
-        // ==================== QR ====================
         function showQR(id) {
             currentQR = id;
             document.getElementById('qrOverlay').classList.add('active');
@@ -331,7 +306,6 @@ async function connectDefaultSession() {
             try {
                 const res = await fetch(`${API}/${currentQR}/status`);
                 const data = await res.json();
-
                 if (data.connected) {
                     document.getElementById('qrStatus').textContent = '✅ Connected!';
                     document.getElementById('qrStatus').style.color = '#28a745';
@@ -352,7 +326,7 @@ async function connectDefaultSession() {
             loadSessions();
         }
 
-        // ==================== INIT ====================
+        // Init
         loadSessions();
         setInterval(loadSessions, 10000);
 

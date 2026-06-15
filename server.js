@@ -57,7 +57,6 @@ app.post('/api/qr/export', async (req, res) => {
         const { getSessionManager } = require('./whatsapp/sessionManager');
         const sessionManager = getSessionManager();
         const qr = sessionManager.getQRCode(sessionId);
-        
         if (qr) {
             sessionManager.setExportedQR(sessionId, qr);
             res.json({ success: true, message: `QR exported for ${sessionId}`, url: '/qr' });
@@ -74,7 +73,6 @@ app.get('/api/qr/exported', (req, res) => {
         const { getSessionManager } = require('./whatsapp/sessionManager');
         const sessionManager = getSessionManager();
         const exported = sessionManager.getExportedQR();
-        
         if (exported) {
             res.json({ success: true, sessionId: exported.sessionId, qr: exported.qrString, expiresAt: exported.expiresAt });
         } else {
@@ -194,7 +192,16 @@ async function startServer() {
         logger.info(`Server started on port ${PORT} [${env.NODE_ENV}]`);
     });
 
-    if (env.AUTO_CONNECT_DEFAULT) await reconnectAllSessions();
+    if (env.AUTO_CONNECT_DEFAULT) {
+        // Step 1: Try to restore default session from MongoDB first
+        const { getSessionManager } = require('./whatsapp/sessionManager');
+        const sessionManager = getSessionManager();
+        await sessionManager.startDefaultSession();
+
+        // Step 2: Reconnect other sessions (not default)
+        await reconnectAllSessions();
+    }
+
     return server;
 }
 
@@ -217,7 +224,7 @@ async function reconnectAllSessions() {
             const Session = require('./models/session');
             const validSessions = await Session.find({ status: 'active', 'creds.me': { $exists: true } });
             for (const s of validSessions) {
-                if (s.sessionId && s.creds && Object.keys(s.creds).length > 0) {
+                if (s.sessionId && s.sessionId !== SESSION_ID && s.creds && Object.keys(s.creds).length > 0) {
                     sessionsToReconnect.add(s.sessionId);
                     logger.info(`Session found in MongoDB: ${s.sessionId}`);
                 }
@@ -232,6 +239,7 @@ async function reconnectAllSessions() {
             return fs.statSync(fp).isDirectory() && f !== '.gitkeep';
         });
         for (const dir of dirs) {
+            if (dir === SESSION_ID) continue; // Skip default - already handled
             const credsFile = path.join(sessionsDir, dir, 'creds.json');
             if (fs.existsSync(credsFile)) {
                 try {
@@ -242,11 +250,9 @@ async function reconnectAllSessions() {
         }
     }
 
-    sessionsToReconnect.add(SESSION_ID);
+    if (sessionsToReconnect.size === 0) return;
 
-    if (sessionsToReconnect.size === 0) { logger.info('No valid sessions found. Visit /sessions'); return; }
-
-    logger.info(`Auto-reconnecting ${sessionsToReconnect.size} session(s)...`);
+    logger.info(`Auto-reconnecting ${sessionsToReconnect.size} other session(s)...`);
     for (const sessionId of sessionsToReconnect) {
         try {
             const result = await sessionManager.connect(sessionId);
