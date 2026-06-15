@@ -105,13 +105,8 @@ class SessionManager {
                     const statusCode = lastDisconnect?.error instanceof Boom ? lastDisconnect.error.output.statusCode : 0;
                     console.log(`[${sessionId}] Closed [${statusCode}]`);
 
-                    // 440 = Session already active elsewhere - don't reconnect
-                    if (statusCode === 440) {
-                        current.status = 'connected';
-                        return;
-                    }
+                    if (statusCode === 440) { current.status = 'connected'; return; }
 
-                    // Logged out
                     if (statusCode === DisconnectReason.loggedOut) {
                         console.log(`❌ [${sessionId}] Logged out`);
                         this.sessions.delete(sessionId);
@@ -121,7 +116,6 @@ class SessionManager {
                         return;
                     }
 
-                    // Other disconnects - reconnect
                     if (this.sessions.has(sessionId)) {
                         current.status = 'disconnected'; current.qrCode = null; current.qrScanned = false;
                         this._emitQRUpdate(sessionId, null, false, false);
@@ -148,38 +142,44 @@ class SessionManager {
                 });
             });
 
+            // ==================== GROUP PARTICIPANTS UPDATE ====================
             sock.ev.on('group-participants.update', async (update) => {
                 const st = require('./state');
-                const { id: gid, participants, action } = update;
-// In group-participants.update, action === 'add':
-if (action === 'add') {
-    const welcomeMsg = state.getWelcome(groupJid);
-    if (welcomeMsg) {
-        // Get group info for placeholders
-        let groupName = '';
-        let groupDesc = '';
-        try {
-            const metadata = await sock.groupMetadata(groupJid);
-            groupName = metadata.subject || '';
-            groupDesc = metadata.desc || 'No description';
-        } catch {}
-        
-        for (const participant of participants) {
-            try {
-                const msg = welcomeMsg
-                    .replace(/@user/g, `@${participant.split('@')[0]}`)
-                    .replace(/{groupName}/g, groupName)
-                    .replace(/{groupDesc}/g, groupDesc);
+                const { id: groupJid, participants, action } = update;
                 
-                await sock.sendMessage(groupJid, { text: msg, mentions: [participant] });
-            } catch {}
-        }
-    }
-}
+                if (action === 'add') {
+                    const welcomeMsg = st.getWelcome(groupJid);
+                    if (welcomeMsg) {
+                        let groupName = '';
+                        let groupDesc = '';
+                        try {
+                            const metadata = await sock.groupMetadata(groupJid);
+                            groupName = metadata.subject || '';
+                            groupDesc = metadata.desc || '';
+                        } catch {}
+
+                        for (const participant of participants) {
+                            try {
+                                const text = welcomeMsg
+                                    .replace(/@user/g, `@${participant.split('@')[0]}`)
+                                    .replace(/{groupName}/g, groupName)
+                                    .replace(/{groupDesc}/g, groupDesc);
+                                await sock.sendMessage(groupJid, { text, mentions: [participant] });
+                            } catch {}
+                        }
+                    }
+                }
+
                 if (action === 'remove') {
-                    const msg = st.getGoodbye(gid);
-                    if (msg) for (const p of participants) {
-                        try { await sock.sendMessage(gid, { text: msg.replace(/@user/g, `@${p.split('@')[0]}`) }); } catch {}
+                    const goodbyeMsg = st.getGoodbye(groupJid);
+                    if (goodbyeMsg) {
+                        for (const participant of participants) {
+                            try {
+                                await sock.sendMessage(groupJid, {
+                                    text: goodbyeMsg.replace(/@user/g, `@${participant.split('@')[0]}`)
+                                });
+                            } catch {}
+                        }
                     }
                 }
             });
