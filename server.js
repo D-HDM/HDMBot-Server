@@ -83,6 +83,26 @@ app.get('/api/qr/exported', (req, res) => {
     }
 });
 
+// ==================== SESSION SYNC ====================
+app.post('/api/sessions/:id/sync', async (req, res) => {
+    try {
+        const { getSessionManager } = require('./whatsapp/sessionManager');
+        const sessionManager = getSessionManager();
+        const sessionId = req.params.id;
+        
+        if (!sessionManager.isConnected(sessionId)) {
+            return res.json({ success: false, error: 'Session not connected' });
+        }
+        
+        const phoneNumber = sessionManager.getSocket(sessionId)?.user?.id?.split(':')[0] || '';
+        await sessionManager._backupToMongoDB(sessionId, phoneNumber);
+        
+        res.json({ success: true, message: `Session ${sessionId} synced to MongoDB` });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // ==================== PUBLIC ROUTES ====================
 app.get('/api/health', (req, res) => {
     res.json({ success: true, status: 'healthy', bot: client.getConnectionStatus(), uptime: process.uptime(), timestamp: new Date().toISOString() });
@@ -193,12 +213,13 @@ async function startServer() {
     });
 
     if (env.AUTO_CONNECT_DEFAULT) {
-        // Step 1: Try to restore default session from MongoDB first
         const { getSessionManager } = require('./whatsapp/sessionManager');
         const sessionManager = getSessionManager();
+        
+        // Step 1: Restore default session from MongoDB
         await sessionManager.startDefaultSession();
 
-        // Step 2: Reconnect other sessions (not default)
+        // Step 2: Restore and reconnect all other sessions
         await reconnectAllSessions();
     }
 
@@ -224,7 +245,23 @@ async function reconnectAllSessions() {
             const Session = require('./models/session');
             const validSessions = await Session.find({ status: 'active', 'creds.me': { $exists: true } });
             for (const s of validSessions) {
-                if (s.sessionId && s.sessionId !== SESSION_ID && s.creds && Object.keys(s.creds).length > 0) {
+                if (s.sessionId === SESSION_ID) continue; // Skip default
+                if (s.sessionId && s.creds && Object.keys(s.creds).length > 0) {
+                    // RESTORE FROM MONGODB TO LOCAL
+                    const sd = path.join(__dirname, 'sessions', s.sessionId);
+                    if (!fs.existsSync(sd)) fs.mkdirSync(sd, { recursive: true });
+                    
+                    const localCredsFile = path.join(sd, 'creds.json');
+                    if (!fs.existsSync(localCredsFile)) {
+                        fs.writeFileSync(localCredsFile, JSON.stringify(s.creds, null, 2));
+                        if (s.keys) {
+                            for (const [key, value] of Object.entries(s.keys)) {
+                                fs.writeFileSync(path.join(sd, `${key}.json`), JSON.stringify(value, null, 2));
+                            }
+                        }
+                        console.log(`📁 Restored ${s.sessionId} from MongoDB to local`);
+                    }
+                    
                     sessionsToReconnect.add(s.sessionId);
                     logger.info(`Session found in MongoDB: ${s.sessionId}`);
                 }
@@ -239,7 +276,7 @@ async function reconnectAllSessions() {
             return fs.statSync(fp).isDirectory() && f !== '.gitkeep';
         });
         for (const dir of dirs) {
-            if (dir === SESSION_ID) continue; // Skip default - already handled
+            if (dir === SESSION_ID) continue;
             const credsFile = path.join(sessionsDir, dir, 'creds.json');
             if (fs.existsSync(credsFile)) {
                 try {

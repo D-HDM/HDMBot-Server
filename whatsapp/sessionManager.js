@@ -151,12 +151,31 @@ class SessionManager {
             sock.ev.on('group-participants.update', async (update) => {
                 const st = require('./state');
                 const { id: gid, participants, action } = update;
-                if (action === 'add') {
-                    const msg = st.getWelcome(gid);
-                    if (msg) for (const p of participants) {
-                        try { await sock.sendMessage(gid, { text: msg.replace(/@user/g, `@${p.split('@')[0]}`), mentions: [p] }); } catch {}
-                    }
-                }
+// In group-participants.update, action === 'add':
+if (action === 'add') {
+    const welcomeMsg = state.getWelcome(groupJid);
+    if (welcomeMsg) {
+        // Get group info for placeholders
+        let groupName = '';
+        let groupDesc = '';
+        try {
+            const metadata = await sock.groupMetadata(groupJid);
+            groupName = metadata.subject || '';
+            groupDesc = metadata.desc || 'No description';
+        } catch {}
+        
+        for (const participant of participants) {
+            try {
+                const msg = welcomeMsg
+                    .replace(/@user/g, `@${participant.split('@')[0]}`)
+                    .replace(/{groupName}/g, groupName)
+                    .replace(/{groupDesc}/g, groupDesc);
+                
+                await sock.sendMessage(groupJid, { text: msg, mentions: [participant] });
+            } catch {}
+        }
+    }
+}
                 if (action === 'remove') {
                     const msg = st.getGoodbye(gid);
                     if (msg) for (const p of participants) {

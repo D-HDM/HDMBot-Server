@@ -245,7 +245,7 @@ function register(commands, categories, category) {
             const sub = (args[0] || '').toLowerCase();
             
             if (sub === 'on') {
-                state.setWelcome(groupJid, '👋 Welcome to the group!');
+               state.setWelcome(groupJid, '👋 Welcome @user to *{groupName}*!\n\n📋 {groupDesc}\n\nEnjoy your stay! 🎉');
                 await sock.sendMessage(groupJid, { text: '✅ Welcome enabled!' });
             } else if (sub === 'off') {
                 state.setWelcome(groupJid, '');
@@ -532,6 +532,32 @@ function register(commands, categories, category) {
             await sock.sendMessage(groupJid, { text: `🔊 @${target.split('@')[0]} unmuted.` });
         }
     });
+
+    // ========== ADD (Group Admin) ==========
+commands.set('add', {
+    category,
+    desc: 'Add a member to group',
+    aliases: ['invite', 'addmember'],
+    execute: async (sock, msg, args, config) => {
+        if (!isGroup(msg)) return await sock.sendMessage(msg.key.remoteJid, { text: '❌ Groups only.' });
+        const groupJid = msg.key.remoteJid;
+        const senderJid = msg.key.participant || msg.key.remoteJid;
+        
+        if (!await isSenderAdmin(sock, groupJid, senderJid)) {
+            return await sock.sendMessage(groupJid, { text: '❌ Only group admins.' });
+        }
+        
+        const target = getTargetJid(msg, args);
+        if (!target) return await sock.sendMessage(groupJid, { text: `❌ Usage: ${config.PREFIX}add <number> or reply to contact` });
+        
+        try {
+            await sock.groupParticipantsUpdate(groupJid, [target], 'add');
+            await sock.sendMessage(groupJid, { text: `✅ Added @${target.split('@')[0]}` });
+        } catch (e) {
+            await sock.sendMessage(groupJid, { text: `❌ Failed: ${e.message}` });
+        }
+    }
+});
 
     // ========== ANTIBADWORD ==========
     commands.set('antibadword', {

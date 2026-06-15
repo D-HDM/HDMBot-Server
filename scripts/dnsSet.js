@@ -11,52 +11,60 @@ process.on('warning', (warning) => {
   console.warn(warning.name, warning.message);
 });
 
-// Suppress Baileys session noise but keep connection logs
+// Suppress ALL Baileys session noise
 const originalConsoleLog = console.log;
 console.log = function(...args) {
-  // First check if it's a string message we want to keep
-  const firstArg = String(args[0] || '');
-  
-  // KEEP these important logs
-  const keepPatterns = [
-    'Connected',
-    'QR ready',
-    'Connecting',
-    'Logged out',
-    'Disconnected',
-    'Reconnecting',
-    'Restored',
-    'Backed up',
-    'MongoDB session',
-    'Local session',
-    'No session',
-  ];
-  
-  for (const pattern of keepPatterns) {
-    if (firstArg.includes(pattern)) {
-      originalConsoleLog.apply(console, args);
-      return;
+  for (const arg of args) {
+    // Check objects for Baileys patterns
+    if (typeof arg === 'object' && arg !== null) {
+      const str = JSON.stringify(arg).substring(0, 150);
+      if (str.includes('SessionEntry') || 
+          str.includes('_chains') ||
+          str.includes('registrationId') ||
+          str.includes('indexInfo') ||
+          str.includes('currentRatchet') ||
+          str.includes('ephemeralKeyPair') ||
+          str.includes('lastRemoteEphemeralKey') ||
+          str.includes('rootKey') ||
+          str.includes('baseKey') ||
+          str.includes('remoteIdentityKey') ||
+          str.includes('pendingPreKey') ||
+          str.includes('chainType') ||
+          str.includes('messageKeys') ||
+          str.includes('chainKey') ||
+          str.includes('signedKeyId') ||
+          str.includes('preKeyId') ||
+          str.includes('previousCounter') ||
+          str.includes('closed:')) {
+        return;
+      }
+    }
+    // Check strings
+    if (typeof arg === 'string') {
+      if (arg.includes('Closing session') ||
+          arg.includes('Removing old closed') ||
+          arg.includes('Decrypted message with closed') ||
+          arg.includes('Closing open session') ||
+          arg.includes('prekey bundle') ||
+          arg.includes('Backed up to MongoDB')) {
+        return;
+      }
     }
   }
-  
-  // Suppress if called from Baileys internals
-  const stack = new Error().stack || '';
-  if (stack.includes('node_modules/@whiskeysockets') || 
-      stack.includes('node_modules/libsignal') ||
-      stack.includes('/baileys/') ||
-      stack.includes('/libsignal/')) {
-    return;
-  }
-  
   originalConsoleLog.apply(console, args);
 };
 
 // Suppress decryption errors
 const originalConsoleError = console.error;
 console.error = function(...args) {
-  const stack = new Error().stack || '';
-  if (stack.includes('node_modules/@whiskeysockets') || 
-      stack.includes('node_modules/libsignal')) {
+  const msg = args.map(a => {
+    if (typeof a === 'object') return JSON.stringify(a).substring(0, 100);
+    return String(a);
+  }).join(' ');
+  if (msg.includes('Bad MAC') || 
+      msg.includes('decrypt') ||
+      msg.includes('Session error') ||
+      msg.includes('Failed to decrypt')) {
     return;
   }
   originalConsoleError.apply(console, args);
