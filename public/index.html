@@ -4,21 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HDM BOT - Session Manager</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤖</text></svg>">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23667eea'/><text x='50' y='65' text-anchor='middle' font-size='50' font-weight='bold' fill='white' font-family='Arial'>HDM</text></svg>">
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
         body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e,#16213e);min-height:100vh;color:#fff;padding:20px}
-        .container{max-width:800px;margin:0 auto}
+        .container{max-width:850px;margin:0 auto}
         .header{text-align:center;padding:30px 0 20px}
         .header h1{font-size:2em;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-        .header p{color:#888;margin-top:5px}
-        
-        .stats-bar{display:flex;gap:15px;justify-content:center;margin-bottom:25px;flex-wrap:wrap}
-        .stat{background:#1e1e3a;border-radius:12px;padding:15px 25px;text-align:center;border:1px solid #2a2a4a;min-width:100px}
-        .stat .num{font-size:1.5em;font-weight:bold;color:#667eea}
-        .stat .label{font-size:0.75em;color:#888;text-transform:uppercase}
+        .header p{color:#888;margin-top:5px;font-size:0.95em}
 
-        .add-btn{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:14px;border:none;border-radius:12px;cursor:pointer;font-size:1em;margin-bottom:20px;width:100%;font-weight:600;transition:all 0.3s}
+        .stats-bar{display:flex;gap:12px;justify-content:center;margin-bottom:25px;flex-wrap:wrap}
+        .stat{background:#1e1e3a;border-radius:12px;padding:15px 22px;text-align:center;border:1px solid #2a2a4a;min-width:95px}
+        .stat .num{font-size:1.4em;font-weight:bold;color:#667eea}
+        .stat .label{font-size:0.7em;color:#888;text-transform:uppercase;margin-top:3px}
+
+        .top-actions{display:flex;gap:10px;margin-bottom:20px}
+        .btn-default{background:linear-gradient(135deg,#28a745,#20c997);color:#fff;padding:14px 20px;border:none;border-radius:12px;cursor:pointer;font-size:0.95em;font-weight:600;transition:all 0.3s;flex:1}
+        .btn-default:hover{opacity:0.9;transform:translateY(-1px)}
+        .add-btn{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:14px 20px;border:none;border-radius:12px;cursor:pointer;font-size:0.95em;font-weight:600;transition:all 0.3s;flex:1}
         .add-btn:hover{opacity:0.9;transform:translateY(-1px)}
 
         .form-card{display:none;background:#1e1e3a;padding:25px;border-radius:15px;margin-bottom:20px;border:1px solid #2a2a4a}
@@ -27,15 +30,17 @@
         .form-card input{width:100%;padding:12px;border-radius:8px;border:1px solid #2a2a4a;background:#12122a;color:#fff;margin:8px 0;font-size:0.95em}
         .form-card input:focus{outline:none;border-color:#667eea}
         .form-actions{display:flex;gap:10px;margin-top:15px}
-        .form-actions button{flex:1;padding:12px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.95em;transition:all 0.2s}
+        .form-actions button{flex:1;padding:12px;border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:all 0.2s}
         .form-actions button:hover{opacity:0.85}
 
         .session-card{background:#1e1e3a;border-radius:15px;padding:20px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;border:1px solid #2a2a4a;gap:15px;flex-wrap:wrap}
         .session-card:hover{border-color:#667eea55}
+        .session-card.default{border-color:#667eea;border-width:2px;background:#1a1a3e}
+        .default-badge{background:#667eea;color:#fff;font-size:0.65em;padding:2px 8px;border-radius:8px;margin-left:8px;font-weight:700}
         .session-info{flex:1;min-width:180px}
-        .session-info h3{color:#e0e0ff;margin-bottom:4px;font-size:1.1em;word-break:break-all}
+        .session-info h3{color:#e0e0ff;margin-bottom:4px;font-size:1.1em}
         .session-info .sid{color:#666;font-size:0.8em;margin-bottom:6px}
-        
+
         .status-badge{display:inline-block;font-size:0.75em;padding:4px 10px;border-radius:10px;font-weight:600}
         .s-connected{background:#28a74522;color:#28a745;border:1px solid #28a74544}
         .s-disconnected{background:#dc354522;color:#dc3545;border:1px solid #dc354544}
@@ -58,11 +63,9 @@
         .qr-box img{max-width:250px;border-radius:12px;margin:15px 0}
         .qr-box p{color:#999;margin:8px 0;font-size:0.9em}
         .qr-box .btn{margin-top:10px}
-        
+
         .empty-state{text-align:center;padding:60px 20px;color:#555}
         .empty-state .icon{font-size:3em;margin-bottom:15px}
-        .empty-state p{font-size:1.1em}
-        
         .loading{text-align:center;padding:40px;color:#666}
         .spinner{display:inline-block;width:30px;height:30px;border:3px solid #2a2a4a;border-top-color:#667eea;border-radius:50%;animation:spin 0.8s linear infinite}
         @keyframes spin{to{transform:rotate(360deg)}}
@@ -72,12 +75,10 @@
         .toast.error{border-color:#dc3545;color:#dc3545}
         .toast.success{border-color:#28a745;color:#28a745}
 
-        @media(max-width:500px){
-            .container{padding:10px}
+        @media(max-width:600px){
+            .top-actions{flex-direction:column}
             .session-card{flex-direction:column;align-items:stretch}
             .actions{justify-content:center}
-            .stats-bar{gap:8px}
-            .stat{padding:10px 15px;min-width:80px}
         }
     </style>
 </head>
@@ -90,7 +91,10 @@
 
         <div class="stats-bar" id="statsBar"></div>
 
-        <button class="add-btn" onclick="toggleForm()">+ Add New Session</button>
+        <div class="top-actions">
+            <button class="btn-default" onclick="connectDefaultSession()">🔌 Connect Default Session</button>
+            <button class="add-btn" onclick="toggleForm()">+ Add New Session</button>
+        </div>
 
         <div class="form-card" id="createForm">
             <h3>Create New Session</h3>
@@ -118,6 +122,7 @@
 
     <script>
         const API = '/api/sessions';
+        const DEFAULT_SESSION = 'HDM-BOT-SESSION';
         let qrTimer = null;
         let currentQR = null;
 
@@ -144,10 +149,9 @@
                 }
 
                 const sessions = data.sessions || [];
-                
-                // Stats
                 const connected = sessions.filter(s => s.status === 'connected').length;
                 const total = sessions.length;
+
                 stats.innerHTML = `
                     <div class="stat"><div class="num">${total}</div><div class="label">Total</div></div>
                     <div class="stat"><div class="num" style="color:#28a745">${connected}</div><div class="label">Online</div></div>
@@ -155,7 +159,7 @@
                 `;
 
                 if (sessions.length === 0) {
-                    list.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>No sessions yet</p><p style="font-size:0.9em;color:#666">Click "Add New Session" to get started</p></div>';
+                    list.innerHTML = `<div class="empty-state"><div class="icon">📭</div><p>No sessions yet</p><p style="font-size:0.9em;color:#666">Click "Connect Default Session" or "Add New Session"</p></div>`;
                     return;
                 }
 
@@ -165,12 +169,13 @@
                     const isConnected = s.status === 'connected';
                     const name = escapeHtml(s.botName || s.id);
                     const phone = escapeHtml(s.phoneNumber || 'N/A');
+                    const isDefault = s.id === DEFAULT_SESSION;
 
                     return `
-                    <div class="session-card">
+                    <div class="session-card${isDefault ? ' default' : ''}">
                         <div class="session-info">
-                            <h3>${name}</h3>
-                            <div class="sid">${escapeHtml(s.id)} | 📱 ${phone}</div>
+                            <h3>${name}${isDefault ? '<span class="default-badge">DEFAULT</span>' : ''}</h3>
+                            <div class="sid">ID: ${escapeHtml(s.id)} | 📱 ${phone}</div>
                             <span class="status-badge ${cls}">${s.status}</span>
                         </div>
                         <div class="actions">
@@ -179,7 +184,7 @@
                                 : `<button class="btn btn-connect" onclick="connectSession('${escapeHtml(s.id)}')">🔌 Connect</button>`
                             }
                             <button class="btn btn-qr" onclick="showQR('${escapeHtml(s.id)}')">📱 QR</button>
-                            <button class="btn btn-delete" onclick="deleteSession('${escapeHtml(s.id)}')">🗑️</button>
+                            ${!isDefault ? `<button class="btn btn-delete" onclick="deleteSession('${escapeHtml(s.id)}')">🗑️</button>` : ''}
                         </div>
                     </div>`;
                 }).join('');
@@ -193,6 +198,42 @@
             d.textContent = text;
             return d.innerHTML;
         }
+
+        // ==================== CONNECT DEFAULT ====================
+async function connectDefaultSession() {
+    try {
+        toast('Connecting default session...', '');
+        const res = await fetch(`${API}/${DEFAULT_SESSION}/connect`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            if (data.needQr || data.qr) showQR(DEFAULT_SESSION);
+            toast(data.message || 'Connecting...', 'success');
+            setTimeout(loadSessions, 2000);
+        } else {
+            // If session doesn't exist yet, create it first
+            if (data.error?.includes('not found') || data.error?.includes('Create')) {
+                toast('Creating default session first...', '');
+                const createRes = await fetch(API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId: DEFAULT_SESSION, botName: 'HDM BOT', ownerNumber: '254768784909' })
+                });
+                const createData = await createRes.json();
+                if (createData.success) {
+                    toast('Session created! Connecting...', 'success');
+                    const retryRes = await fetch(`${API}/${DEFAULT_SESSION}/connect`, { method: 'POST' });
+                    const retryData = await retryRes.json();
+                    if (retryData.qr || retryData.needQr) showQR(DEFAULT_SESSION);
+                    setTimeout(loadSessions, 2000);
+                }
+            } else {
+                toast(data.error || 'Failed', 'error');
+            }
+        }
+    } catch (err) {
+        toast('Connection failed', 'error');
+    }
+}
 
         // ==================== FORM ====================
         function toggleForm() {
@@ -239,9 +280,11 @@
                 const res = await fetch(`${API}/${id}/connect`, { method: 'POST' });
                 const data = await res.json();
                 if (data.success) {
-                    if (data.needQr) showQR(id);
+                    if (data.needQr || data.qr) showQR(id);
                     toast(data.message || 'Connecting...', 'success');
                     setTimeout(loadSessions, 2000);
+                } else {
+                    toast(data.error || 'Failed', 'error');
                 }
             } catch (err) {
                 toast('Connection failed', 'error');
@@ -260,6 +303,7 @@
         }
 
         async function deleteSession(id) {
+            if (id === DEFAULT_SESSION) return toast('Cannot delete default session', 'error');
             if (!confirm(`Delete "${id}" permanently?`)) return;
             try {
                 await fetch(`${API}/${id}`, { method: 'DELETE' });
@@ -277,7 +321,6 @@
             document.getElementById('qrImage').src = '';
             document.getElementById('qrStatus').textContent = 'Loading QR...';
             document.getElementById('qrStatus').style.color = '#ffc107';
-            
             pollQR();
             if (qrTimer) clearInterval(qrTimer);
             qrTimer = setInterval(pollQR, 2000);
@@ -299,9 +342,7 @@
                     document.getElementById('qrStatus').textContent = data.qrScanned ? '📱 Scanned! Confirming...' : '📱 Scan with WhatsApp';
                     document.getElementById('qrStatus').style.color = data.qrScanned ? '#ffc107' : '#fff';
                 }
-            } catch (err) {
-                console.error('QR poll:', err);
-            }
+            } catch (err) {}
         }
 
         function closeQR() {
@@ -315,7 +356,6 @@
         loadSessions();
         setInterval(loadSessions, 10000);
 
-        // Close form on Escape
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape') {
                 document.getElementById('createForm').classList.remove('active');

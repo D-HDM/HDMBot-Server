@@ -9,102 +9,91 @@ const sessionSchema = new mongoose.Schema({
     },
     creds: { 
         type: Object, 
-        required: true 
+        default: {} 
     },
     keys: { 
         type: Object, 
-        required: true 
+        default: {} 
     },
     status: {
         type: String,
         enum: ['active', 'inactive', 'expired'],
-        default: 'active'
+        default: 'inactive'
     },
     metadata: {
-        botName: {
-            type: String,
-            default: 'HDM BOT'
-        },
-        ownerName: {
-            type: String,
-            default: 'Davix HDM'
-        },
-        phoneNumber: String,
-        platform: {
-            type: String,
-            default: 'WhatsApp'
-        },
-        lastConnected: Date,
-        deviceInfo: String
+        botName: { type: String, default: 'HDM BOT' },
+        ownerName: { type: String, default: 'Davix HDM' },
+        phoneNumber: { type: String, default: '' },
+        platform: { type: String, default: 'WhatsApp' },
+        lastConnected: { type: Date },
+        deviceInfo: { type: String, default: 'HDM BOT v2.0.0' }
     }
 }, {
-    timestamps: true, // Adds createdAt and updatedAt automatically
+    timestamps: true,
     collection: 'sessions'
 });
 
-// Indexes for better query performance
+// Indexes
 sessionSchema.index({ updatedAt: -1 });
 sessionSchema.index({ status: 1 });
 
-// Pre-save middleware
+// Pre-save hook
 sessionSchema.pre('save', function(next) {
-    // Update lastConnected timestamp when credentials change
-    if (this.isModified('creds')) {
+    if (this.isModified('creds') && Object.keys(this.creds).length > 0) {
         this.metadata.lastConnected = new Date();
+        this.status = 'active';
     }
     next();
 });
 
-// Static method to find active session
-sessionSchema.statics.findActiveSession = function(sessionId) {
+// Static: Find active session with valid creds
+sessionSchema.statics.findValidSession = function(sessionId) {
     return this.findOne({ 
         sessionId, 
-        status: 'active' 
+        status: 'active',
+        'creds.me': { $exists: true }
     });
 };
 
-// Method to check if session is expired (older than 7 days)
-sessionSchema.methods.isExpired = function() {
-    const sevenDays = 7 * 24 * 60 * 60 * 1000;
-    return Date.now() - this.updatedAt.getTime() > sevenDays;
-};
-
-// Method to deactivate session
-sessionSchema.methods.deactivate = async function() {
-    this.status = 'inactive';
-    return await this.save();
-};
-
-// Method to reactivate session
-sessionSchema.methods.activate = async function() {
-    this.status = 'active';
-    return await this.save();
-};
-
-// Static method to clean up expired sessions
-sessionSchema.statics.cleanExpiredSessions = async function() {
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    return await this.deleteMany({ 
-        updatedAt: { $lt: sevenDaysAgo },
-        status: 'inactive'
-    });
-};
-
-// Static method to get session stats
-sessionSchema.statics.getSessionStats = async function() {
-    const stats = await this.aggregate([
+// Static: Save or update session creds
+sessionSchema.statics.saveCreds = async function(sessionId, creds, keys) {
+    return await this.findOneAndUpdate(
+        { sessionId },
         {
-            $group: {
-                _id: '$status',
-                count: { $sum: 1 },
-                lastUpdated: { $max: '$updatedAt' }
+            sessionId,
+            creds,
+            keys,
+            status: 'active',
+            'metadata.lastConnected': new Date(),
+            $setOnInsert: {
+                'metadata.botName': process.env.BOT_NAME || 'HDM BOT',
+                'metadata.ownerName': process.env.OWNER_NAME || 'Davix HDM',
+                'metadata.platform': 'WhatsApp'
             }
-        }
-    ]);
-    return stats;
+        },
+        { upsert: true, new: true }
+    );
 };
 
-// Create and export the model
+// Static: Deactivate session
+sessionSchema.statics.deactivateSession = async function(sessionId) {
+    return await this.findOneAndUpdate(
+        { sessionId },
+        { status: 'inactive' }
+    );
+};
+
+// Method: Check if session is expired (>30 days unused)
+sessionSchema.methods.isExpired = function() {
+    const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+    return Date.now() - this.updatedAt.getTime() > thirtyDays;
+};
+
+// Method: Has valid credentials
+sessionSchema.methods.hasValidCreds = function() {
+    return this.creds && Object.keys(this.creds).length > 0 && !!this.creds.me;
+};
+
 const Session = mongoose.model('Session', sessionSchema);
 
 module.exports = Session;
