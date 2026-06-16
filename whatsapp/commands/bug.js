@@ -2,11 +2,25 @@ const state = require('../state');
 const { isAdmin, isOwner, isBugUser } = require('../helpers/permissions');
 
 function register(commands, categories, category) {
+
+    // ========== BUGMENU ==========
     commands.set('bugmenu', {
         category,
         desc: 'Show bug menu',
         execute: async (sock, msg, args, config) => {
             const sender = msg.key.participant || msg.key.remoteJid;
+            const senderNum = sender.split('@')[0];
+            
+            console.log('=== BUGMENU ===');
+            console.log('senderNum:', senderNum);
+            console.log('isAdmin:', isAdmin(sender));
+            console.log('isOwner:', isOwner(sender));
+            console.log('isBugUser:', isBugUser(sender));
+            console.log('ownerNumber state:', state.getGlobalSetting('ownerNumber', 'NOT SET'));
+            console.log('ownerNumber env:', process.env.BOT_OWNER_NUMBER);
+            console.log('adminNumbers state:', state.getGlobalSetting('adminNumbers', []));
+            console.log('bugUsers state:', state.getGlobalSetting('bugUsers', []));
+            
             if (!isBugUser(sender)) return await sock.sendMessage(msg.key.remoteJid, { text: '❌ Not authorized.' });
             
             const { PREFIX } = config;
@@ -16,6 +30,7 @@ function register(commands, categories, category) {
         }
     });
 
+    // ========== BUG ==========
     commands.set('bug', {
         category,
         desc: 'Send bug messages',
@@ -60,6 +75,7 @@ function register(commands, categories, category) {
         }
     });
 
+    // ========== STOPBUG ==========
     commands.set('stopbug', {
         category,
         desc: 'Stop bug attacks',
@@ -80,11 +96,23 @@ function register(commands, categories, category) {
         }
     });
 
+    // ========== ADDBUGUSER ==========
     commands.set('addbuguser', {
         category,
         desc: 'Add bug user',
         execute: async (sock, msg, args, config) => {
             const sender = msg.key.participant || msg.key.remoteJid;
+            const senderNum = sender.split('@')[0];
+            
+            console.log('=== ADDBUGUSER ===');
+            console.log('sender:', sender);
+            console.log('senderNum:', senderNum);
+            console.log('isAdmin:', isAdmin(sender));
+            console.log('isOwner:', isOwner(sender));
+            console.log('ownerNumber state:', state.getGlobalSetting('ownerNumber', 'NOT SET'));
+            console.log('ownerNumber env:', process.env.BOT_OWNER_NUMBER || process.env.OWNER_NUMBER);
+            console.log('adminNumbers state:', JSON.stringify(state.getGlobalSetting('adminNumbers', [])));
+            
             if (!isAdmin(sender)) return await sock.sendMessage(msg.key.remoteJid, { text: '❌ Admin only.' });
             
             const target = args[0]?.replace(/[^0-9]/g, '');
@@ -95,15 +123,21 @@ function register(commands, categories, category) {
             
             bugUsers.push(target);
             state.setGlobalSetting('bugUsers', bugUsers);
-            await sock.sendMessage(msg.key.remoteJid, { text: `✅ @${target} added.` });
+            await sock.sendMessage(msg.key.remoteJid, { text: `✅ @${target} added as bug user.` });
         }
     });
 
+    // ========== LISTBUGUSERS ==========
     commands.set('listbugusers', {
         category,
         desc: 'List bug users',
         execute: async (sock, msg, args, config) => {
             const sender = msg.key.participant || msg.key.remoteJid;
+            console.log('=== LISTBUGUSERS ===');
+            console.log('senderNum:', sender.split('@')[0]);
+            console.log('isAdmin:', isAdmin(sender));
+            console.log('isOwner:', isOwner(sender));
+            
             if (!isAdmin(sender)) return await sock.sendMessage(msg.key.remoteJid, { text: '❌ Admin only.' });
             
             const bugUsers = state.getGlobalSetting('bugUsers', []);
@@ -112,6 +146,7 @@ function register(commands, categories, category) {
         }
     });
 
+    // ========== REMOVEBUGUSER ==========
     commands.set('removebuguser', {
         category,
         desc: 'Remove bug user',
@@ -132,21 +167,23 @@ function register(commands, categories, category) {
         }
     });
 
+    // ========== ANTIBUG ==========
     commands.set('antibug', {
         category,
         desc: 'Toggle anti-bug',
         execute: async (sock, msg, args, config) => {
-            const senderNum = msg.key.participant?.split('@')[0] || msg.key.remoteJid.split('@')[0];
+            const { PREFIX, SESSION_ID } = config;
             const state_ = (args[0] || '').toLowerCase();
-            const current = state.getUserSetting(senderNum, 'anti_bug', false);
+            const current = state.getUserSetting(SESSION_ID, 'anti_bug', false);
             if (!['on', 'off'].includes(state_)) {
-                return await sock.sendMessage(msg.key.remoteJid, { text: `🛡️ Anti-Bug: ${current ? 'ON' : 'OFF'}\n${config.PREFIX}antibug on/off` });
+                return await sock.sendMessage(msg.key.remoteJid, { text: `🛡️ Anti-Bug: ${current ? 'ON' : 'OFF'}\n${PREFIX}antibug on/off` });
             }
-            state.setUserSetting(senderNum, 'anti_bug', state_ === 'on');
+            state.setUserSetting(SESSION_ID, 'anti_bug', state_ === 'on');
             await sock.sendMessage(msg.key.remoteJid, { text: `✅ Anti-bug ${state_ === 'on' ? 'enabled' : 'disabled'}.` });
         }
     });
 
+    // ========== BUGLOGS ==========
     commands.set('buglogs', {
         category,
         desc: 'Show bug logs',
@@ -165,6 +202,7 @@ function register(commands, categories, category) {
         }
     });
 
+    // ========== CLEARBUGLOGS ==========
     commands.set('clearbuglogs', {
         category,
         desc: 'Clear bug logs',
