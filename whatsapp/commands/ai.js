@@ -1,22 +1,21 @@
 const axios = require('axios');
-const FormData = require('form-data');
 const state = require('../state');
 
-// ==================== HDM AI (PRIMARY - uses form-data) ====================
+// ==================== HDM AI (NEW API - JSON + Bearer) ====================
 async function queryHDMAI(prompt) {
     try {
-        const url = process.env.HDM_AI_API_URL || 'https://hdm-ai-server.onrender.com/api/v1/general/chat/public';
-        const key = process.env.HDM_AI_API_KEY || 'hdm_gen_94b1a42c30805c31852105c287a5812272857a0af82e1e58';
+        const url = 'https://hdmaiserver.pxxl.click/api/v1/projects/general/public-chat';
+        const key = process.env.HDM_AI_API_KEY || '';
         
-        const formData = new FormData();
-        formData.append('message', prompt);
-        formData.append('system_prompt', `You are ${process.env.BOT_NAME || 'HDM BOT'}, a helpful WhatsApp assistant. Keep responses concise and friendly.`);
-        formData.append('interface', 'client');
-
-        const { data } = await axios.post(url, formData, {
+        if (!key) return '❌ HDM AI API key not set.';
+        
+        const { data } = await axios.post(url, {
+            message: prompt,
+            system_prompt: `You are ${process.env.BOT_NAME || 'HDM BOT'}, a helpful WhatsApp assistant. Keep responses concise and friendly.`
+        }, {
             headers: {
-                'x-api-key': key,
-                ...formData.getHeaders()
+                'Authorization': `Bearer ${key}`,
+                'Content-Type': 'application/json'
             },
             timeout: 60000
         });
@@ -38,8 +37,7 @@ async function queryDeepSeek(prompt) {
         const { data } = await axios.post('https://api.deepseek.com/v1/chat/completions', {
             model: 'deepseek-chat',
             messages: [{ role: 'user', content: prompt }],
-            temperature: 0.7,
-            max_tokens: 1000
+            temperature: 0.7, max_tokens: 1000
         }, {
             headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
             timeout: 30000
@@ -70,8 +68,7 @@ async function queryChatGPT(prompt) {
         const { data } = await axios.post('https://api.openai.com/v1/chat/completions', {
             model: 'gpt-3.5-turbo',
             messages: [{ role: 'user', content: prompt }],
-            temperature: 0.7,
-            max_tokens: 1000
+            temperature: 0.7, max_tokens: 1000
         }, {
             headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
             timeout: 30000
@@ -88,8 +85,7 @@ async function queryGrok(prompt) {
         const { data } = await axios.post('https://api.x.ai/v1/chat/completions', {
             model: 'grok-2-latest',
             messages: [{ role: 'user', content: prompt }],
-            temperature: 0.7,
-            max_tokens: 1000
+            temperature: 0.7, max_tokens: 1000
         }, {
             headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
             timeout: 30000
@@ -106,8 +102,7 @@ async function queryGroq(prompt) {
         const { data } = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
             model: 'llama-3.3-70b-versatile',
             messages: [{ role: 'user', content: prompt }],
-            temperature: 0.7,
-            max_tokens: 1000
+            temperature: 0.7, max_tokens: 1000
         }, {
             headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
             timeout: 30000
@@ -118,11 +113,12 @@ async function queryGroq(prompt) {
 
 // ==================== REGISTER COMMANDS ====================
 function register(commands, categories, category) {
-    
+
     // .ai - Default AI (uses HDM AI)
     commands.set('ai', {
         category,
         desc: 'Ask AI (HDM AI)',
+        aliases: ['ask'],
         execute: async (sock, msg, args, config) => {
             if (!args.length) return await sock.sendMessage(msg.key.remoteJid, { text: `❌ Usage: ${config.PREFIX}ai <question>` });
             await sock.sendMessage(msg.key.remoteJid, { text: '🤖 Thinking...' });
